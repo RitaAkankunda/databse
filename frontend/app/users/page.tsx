@@ -19,7 +19,7 @@ import { UserDialog, User } from "../../components/user-dialog";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { useNotificationActions } from "@/components/notification-system";
  
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 type ApiUser = {
   user_id: number;

@@ -13,7 +13,7 @@ import { useNotificationActions } from "@/components/notification-system"
 import StatsCards from "@/components/stats-cards"
 import usePolling from "@/lib/usePolling"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 
 type Category = { category_id: number; category_name: string; description?: string | null }
 

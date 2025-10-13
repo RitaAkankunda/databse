@@ -7,7 +7,7 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { getCurrentUser, type UserRecord } from "@/lib/auth";
 import { useEffect, useState } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<UserRecord | null>(null);
