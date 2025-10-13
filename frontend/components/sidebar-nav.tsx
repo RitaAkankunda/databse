@@ -51,19 +51,27 @@ export function SidebarNav() {
 
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r border-border bg-card">
-      <div className="flex h-16 items-center border-b border-border px-6">
+    <div className="flex h-screen w-64 flex-col border-r border-border bg-white/80 backdrop-blur-sm shadow-lg">
+      <div className="flex h-20 items-center border-b border-border px-6">
         <div className="flex items-center justify-between w-full">
-          <h1 className="text-xl font-bold text-foreground">Asset Manager</h1>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg">
+              <Package className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Asset Manager</h1>
+              <p className="text-xs text-muted-foreground">Professional System</p>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs text-muted-foreground">Live</label>
-            <button onClick={() => setLive(!isLive)} className={`h-6 w-10 rounded-full p-0.5 transition ${isLive ? 'bg-green-500' : 'bg-gray-300'}`} aria-pressed={isLive} title="Toggle Live Polling">
-              <div className={`h-5 w-5 rounded-full bg-white shadow transform transition ${isLive ? 'translate-x-4' : 'translate-x-0'}`}></div>
+            <label className="text-xs text-muted-foreground font-medium">Live</label>
+            <button onClick={() => setLive(!isLive)} className={`h-6 w-10 rounded-full p-0.5 transition-all duration-300 ${isLive ? 'bg-green-500 shadow-lg' : 'bg-gray-300'}`} aria-pressed={isLive} title="Toggle Live Polling">
+              <div className={`h-5 w-5 rounded-full bg-white shadow transform transition-all duration-300 ${isLive ? 'translate-x-4' : 'translate-x-0'}`}></div>
             </button>
           </div>
         </div>
       </div>
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-2 p-4">
         {(user
           ? navItems
           : navItems.filter((i) =>
@@ -78,30 +86,38 @@ export function SidebarNav() {
               href={item.href}
               prefetch={false}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 hover-lift group",
                 isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-gradient-primary text-white shadow-lg"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               )}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className={cn(
+                "h-5 w-5 transition-all duration-300",
+                isActive ? "text-white" : "text-muted-foreground group-hover:text-foreground"
+              )} />
               {item.title}
             </Link>
           );
         })}
         {user && (
-          <button
-            onClick={() => {
-              logout();
-              window.location.href = "/";
-            }}
-            className={cn(
-              "mt-4 w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            Logout
-          </button>
+          <div className="mt-6 pt-4 border-t border-border">
+            <button
+              onClick={() => {
+                logout();
+                window.location.href = "/";
+              }}
+              className={cn(
+                "w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 hover-lift group",
+                "text-muted-foreground hover:bg-red-50 hover:text-red-600"
+              )}
+            >
+              <div className="h-5 w-5 rounded-full bg-red-100 flex items-center justify-center group-hover:bg-red-200 transition-colors">
+                <span className="text-xs text-red-600">×</span>
+              </div>
+              Logout
+            </button>
+          </div>
         )}
       </nav>
     </div>
