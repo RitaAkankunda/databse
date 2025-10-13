@@ -20,10 +20,11 @@ import {
 } from "lucide-react";
 import { getCurrentUser, logout, type UserRecord } from "@/lib/auth";
 import { useEffect, useState } from "react";
+import { useIsLive, useSetLive } from "@/lib/live"
 
 const navItems = [
   // 1) Entry
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   // 2) Masters that assets depend on
   { title: "Categories", href: "/categories", icon: FolderTree },
   { title: "Suppliers", href: "/suppliers", icon: Building2 },
@@ -43,20 +44,24 @@ const navItems = [
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const [user, setUser] = useState<UserRecord | null>(null);
-  const [ready, setReady] = useState(false);
+  // initialize synchronously to avoid a brief empty placeholder and reduce re-renders
+  const [user, setUser] = useState<UserRecord | null>(() => getCurrentUser());
+  const isLive = useIsLive()
+  const setLive = useSetLive()
 
-  useEffect(() => {
-    setUser(getCurrentUser());
-    setReady(true);
-  }, []);
-
-  if (!ready) return <div className="flex h-screen w-64" />;
 
   return (
     <div className="flex h-screen w-64 flex-col border-r border-border bg-card">
       <div className="flex h-16 items-center border-b border-border px-6">
-        <h1 className="text-xl font-bold text-foreground">Asset Manager</h1>
+        <div className="flex items-center justify-between w-full">
+          <h1 className="text-xl font-bold text-foreground">Asset Manager</h1>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground">Live</label>
+            <button onClick={() => setLive(!isLive)} className={`h-6 w-10 rounded-full p-0.5 transition ${isLive ? 'bg-green-500' : 'bg-gray-300'}`} aria-pressed={isLive} title="Toggle Live Polling">
+              <div className={`h-5 w-5 rounded-full bg-white shadow transform transition ${isLive ? 'translate-x-4' : 'translate-x-0'}`}></div>
+            </button>
+          </div>
+        </div>
       </div>
       <nav className="flex-1 space-y-1 p-4">
         {(user
@@ -71,6 +76,7 @@ export function SidebarNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive

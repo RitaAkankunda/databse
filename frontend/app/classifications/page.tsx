@@ -32,7 +32,7 @@ export default function ClassificationsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/categories`)
+  const res = await fetch(`${API_BASE_URL}/api/categories/`)
         if (!res.ok) throw new Error("Failed to load categories")
         const data: Array<{ category_id: number; category_name: string; description?: string | null; _count?: { assets: number } }> = await res.json()
         setClassifications(
@@ -67,7 +67,7 @@ export default function ClassificationsPage() {
 
   const handleAddClassification = async (classificationData: Omit<Classification, 'id' | 'assetCount' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/categories`, {
+      const res = await fetch(`${API_BASE_URL}/api/categories/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category_name: classificationData.name, description: classificationData.description })
@@ -92,7 +92,7 @@ export default function ClassificationsPage() {
 
   const handleUpdateClassification = async (id: string, classificationData: Omit<Classification, 'id' | 'assetCount' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/categories/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/categories/${id}/`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category_name: classificationData.name, description: classificationData.description })
@@ -122,8 +122,8 @@ export default function ClassificationsPage() {
   const confirmDelete = async () => {
     if (!classificationToDelete) return
     try {
-      const res = await fetch(`${API_BASE_URL}/api/categories/${classificationToDelete.id}`, { method: 'DELETE' })
-      if (!res.ok && res.status !== 204) throw new Error('Failed to delete category')
+  const res = await fetch(`${API_BASE_URL}/api/categories/${classificationToDelete.id}/`, { method: 'DELETE' })
+  if (!res.ok && res.status !== 204) throw new Error('Failed to delete category')
       setClassifications(prev => prev.filter(classification => classification.id !== classificationToDelete.id))
       showSuccess("Classification Deleted", `${classificationToDelete.name} has been successfully deleted.`)
     } catch (e) {

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 
-const PUBLIC_ROUTES = new Set(["/login", "/register"]);
+const PUBLIC_ROUTES = new Set(["/", "/login", "/register"]);
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -15,7 +15,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (PUBLIC_ROUTES.has(pathname)) return;
     const user = getCurrentUser();
     if (!user) {
-      router.replace("/register");
+      router.replace("/");
     }
   }, [pathname, router]);
 

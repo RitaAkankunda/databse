@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Plus, Search, Edit, Trash2, Users, Filter } from "lucide-react";
 import { UserDialog, User } from "../../components/user-dialog";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
+import { useNotificationActions } from "@/components/notification-system";
  
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
 
@@ -66,12 +67,13 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const { showSuccess, showError } = useNotificationActions()
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All");
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/users`);
+    const res = await fetch(`${API_BASE_URL}/api/users/`);
         if (!res.ok) throw new Error("Failed to load users");
         const data: ApiUser[] = await res.json();
         setUsers(data.map(mapApiUserToUi));
@@ -95,14 +97,15 @@ export default function UsersPage() {
 
   const handleAddUser = async (userData: Omit<User, "id" | "createdAt" | "updatedAt">) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/users`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mapUiToApi(userData)),
       });
-      if (!res.ok) throw new Error("Failed to create user");
+      if (!res.ok) { showError('Create Failed', 'Unable to create user'); throw new Error('Failed to create user') }
       const created: ApiUser = await res.json();
       setUsers((prev) => [...prev, mapApiUserToUi(created)]);
+      showSuccess('User Added', `${created.name} added`)
     } catch (err) {
       console.error(err);
     }
@@ -113,14 +116,15 @@ export default function UsersPage() {
     userData: Omit<User, "id" | "createdAt" | "updatedAt">
   ) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/${id}/`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mapUiToApi(userData)),
       });
-      if (!res.ok) throw new Error("Failed to update user");
+      if (!res.ok) { showError('Update Failed', 'Unable to update user'); throw new Error('Failed to update user') }
       const updated: ApiUser = await res.json();
       setUsers((prev) => prev.map((u) => (u.id === id ? mapApiUserToUi(updated) : u)));
+      showSuccess('User Updated', `${updated.name} updated`)
     } catch (err) {
       console.error(err);
     }
@@ -134,15 +138,20 @@ export default function UsersPage() {
   const confirmDelete = async () => {
     if (!userToDelete) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/users/${userToDelete.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/${userToDelete.id}/`, {
         method: "DELETE",
       });
-      if (!res.ok && res.status !== 204) throw new Error("Failed to delete user");
+      if (!res.ok && res.status !== 204) {
+        showError('Delete Failed', 'Unable to delete user');
+        throw new Error('Failed to delete user');
+      }
       setUsers((prev) => prev.filter((u) => u.id !== userToDelete.id));
+      showSuccess('User Deleted', `${userToDelete.name} removed`);
     } catch (err) {
       console.error(err);
     } finally {
       setUserToDelete(null);
+      setDeleteConfirmOpen(false);
     }
   };
 

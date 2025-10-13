@@ -9,6 +9,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Plus, Search, Edit, Trash2, MapPin } from "lucide-react"
 import { LocationDialog, type LocationRecord } from "@/components/location-dialog"
 import { ConfirmationDialog } from "@/components/confirmation-dialog"
+import { useNotificationActions } from "@/components/notification-system"
+import StatsCards from "@/components/stats-cards"
+import usePolling from "@/lib/usePolling"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000"
 
@@ -18,11 +21,12 @@ export default function LocationsPage() {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<LocationRecord | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const { showSuccess, showError } = useNotificationActions()
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/locations`)
+        const res = await fetch(`${API_BASE_URL}/api/locations/`)
         const data = await res.json()
         setItems(data.map((r: any) => ({ id: String(r.location_id), building: r.building || "", postal_address: r.postal_address || "", geographical_location: r.geographical_location || "" })))
       } catch (e) { console.error(e) }
@@ -34,26 +38,63 @@ export default function LocationsPage() {
   function handleDelete(r: LocationRecord) { setSelected(r); setConfirmOpen(true) }
 
   async function onSave(data: Omit<LocationRecord,'id'>) {
-    const res = await fetch(`${API_BASE_URL}/api/locations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-    if (!res.ok) return console.error('Create failed')
+    const res = await fetch(`${API_BASE_URL}/api/locations/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+    if (!res.ok) { showError('Create Failed', 'Unable to create location'); throw new Error('Create failed') }
     const created = await res.json()
     setItems(prev => [...prev, { id: String(created.location_id), building: created.building || "", postal_address: created.postal_address || "", geographical_location: created.geographical_location || "" }])
+    showSuccess('Location Added', `Location ${created.building || ''} added`)
   }
   async function onUpdate(id: string, data: Omit<LocationRecord,'id'>) {
-    const res = await fetch(`${API_BASE_URL}/api/locations/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-    if (!res.ok) return console.error('Update failed')
+    const res = await fetch(`${API_BASE_URL}/api/locations/${id}/`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+    if (!res.ok) { showError('Update Failed', 'Unable to update location'); throw new Error('Update failed') }
     const updated = await res.json()
     setItems(prev => prev.map(x => x.id === id ? { id, building: updated.building || "", postal_address: updated.postal_address || "", geographical_location: updated.geographical_location || "" } : x))
+    showSuccess('Location Updated', `Location ${updated.building || ''} updated`)
   }
   async function confirmDelete() {
     if (!selected) return
-    const res = await fetch(`${API_BASE_URL}/api/locations/${selected.id}`, { method: 'DELETE' })
-    if (!res.ok && res.status !== 204) return console.error('Delete failed')
+    const res = await fetch(`${API_BASE_URL}/api/locations/${selected.id}/`, { method: 'DELETE' })
+    if (!res.ok && res.status !== 204) { showError('Delete Failed', 'Unable to delete location'); throw new Error('Delete failed') }
     setItems(prev => prev.filter(x => x.id !== selected.id))
     setSelected(null)
+    showSuccess('Location Deleted', `Location deleted`)
   }
 
   const filtered = items.filter(i => [i.building, i.postal_address, i.geographical_location].join(' ').toLowerCase().includes(search.toLowerCase()))
+
+  // Live stats: poll locations and assets to compute counts
+  const { data: polledLocations } = usePolling<any[]>(`${API_BASE_URL}/api/locations/`, 30000, !open && !confirmOpen)
+  const { data: polledAssets } = usePolling<any[]>(`${API_BASE_URL}/api/assets/`, 30000, !open && !confirmOpen)
+
+  const locationsList: any[] = Array.isArray(polledLocations) ? polledLocations : items
+  // if polledLocations is available, keep `items` in sync so the table auto-refreshes
+  useEffect(() => {
+    if (Array.isArray(polledLocations)) {
+      setItems(polledLocations.map((r: any) => ({ id: String(r.location_id), building: r.building || "", postal_address: r.postal_address || "", geographical_location: r.geographical_location || "", created_at: r.created_at || r.created || null })))
+    }
+  }, [polledLocations])
+  const assetsList: any[] = Array.isArray(polledAssets) ? polledAssets : []
+
+  const totalLocations = (locationsList || []).length
+  // assume assets have a 'location' or 'location_id' field referencing location_id
+  const countByLocation = new Map<string, number>()
+  assetsList.forEach((a: any) => {
+    const lid = String(a.location ?? a.location_id ?? '')
+    if (!lid) return
+    countByLocation.set(lid, (countByLocation.get(lid) || 0) + 1)
+  })
+  const locationsWithAssets = Array.from(countByLocation.keys()).length
+  const emptyLocations = Math.max(0, totalLocations - locationsWithAssets)
+  // recent additions: locations created in the last 30 days (assume 'created_at' field)
+  const now = new Date()
+  const in30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const recentAdditions = (locationsList || []).filter((l: any) => {
+    const t = l.created_at ?? l.created ?? null
+    if (!t) return false
+    const d = new Date(t)
+    if (Number.isNaN(d.getTime())) return false
+    return d >= in30d && d <= now
+  }).length
 
   return (
     <div className="flex">
@@ -66,6 +107,14 @@ export default function LocationsPage() {
           </div>
           <Button onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Location</Button>
         </div>
+
+        {/* Stats cards */}
+        <StatsCards stats={[
+          { title: 'Total Locations', value: <span className="text-purple-600">{totalLocations}</span>, subtitle: 'All locations' },
+          { title: 'With Assets', value: <span className="text-green-600">{locationsWithAssets}</span>, subtitle: 'Locations with assets' },
+          { title: 'Empty', value: <span className="text-blue-600">{emptyLocations}</span>, subtitle: 'No assets' },
+          { title: 'Recent (30d)', value: <span className="text-purple-600">{recentAdditions}</span>, subtitle: 'Added last 30 days' },
+        ]} />
 
         <Card>
           <CardHeader>

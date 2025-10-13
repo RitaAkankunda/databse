@@ -9,6 +9,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Plus, Search, Edit, Trash2, UserCog } from "lucide-react"
 import { MaintenanceStaffDialog, type MaintenanceStaffRecord } from "@/components/maintenance-staff-dialog"
 import { ConfirmationDialog } from "@/components/confirmation-dialog"
+import { useNotificationActions } from "@/components/notification-system"
+import StatsCards from "@/components/stats-cards"
+import usePolling from "@/lib/usePolling"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000"
 
@@ -18,10 +21,11 @@ export default function MaintenanceStaffPage() {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<MaintenanceStaffRecord | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const { showSuccess, showError } = useNotificationActions()
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`${API_BASE_URL}/api/maintenance-staff`)
+  const res = await fetch(`${API_BASE_URL}/api/maintenance-staff/`)
       const data = await res.json()
       setItems(data.map((r: any) => ({ id: String(r.m_staff_id), name: r.name, phone: r.phone || '', email: r.email || '', specialization: r.specialization || '' })))
     })()
@@ -32,26 +36,51 @@ export default function MaintenanceStaffPage() {
   function handleDelete(r: MaintenanceStaffRecord) { setSelected(r); setConfirmOpen(true) }
 
   async function onSave(data: Omit<MaintenanceStaffRecord,'id'>) {
-    const res = await fetch(`${API_BASE_URL}/api/maintenance-staff`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-    if (!res.ok) return
+  const res = await fetch(`${API_BASE_URL}/api/maintenance-staff/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+  if (!res.ok) { showError('Create Failed', 'Unable to create staff'); throw new Error('Create failed') }
     const created = await res.json()
     setItems(prev => [...prev, { id: String(created.m_staff_id), name: created.name, phone: created.phone || '', email: created.email || '', specialization: created.specialization || '' }])
+  showSuccess('Staff Added', `${created.name} added`)
   }
   async function onUpdate(id: string, data: Omit<MaintenanceStaffRecord,'id'>) {
-    const res = await fetch(`${API_BASE_URL}/api/maintenance-staff/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-    if (!res.ok) return
+  const res = await fetch(`${API_BASE_URL}/api/maintenance-staff/${id}/`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+  if (!res.ok) { showError('Update Failed', 'Unable to update staff'); throw new Error('Update failed') }
     const updated = await res.json()
     setItems(prev => prev.map(x => x.id === id ? { id, name: updated.name, phone: updated.phone || '', email: updated.email || '', specialization: updated.specialization || '' } : x))
+  showSuccess('Staff Updated', `${updated.name} updated`)
   }
   async function confirmDelete() {
     if (!selected) return
-    const res = await fetch(`${API_BASE_URL}/api/maintenance-staff/${selected.id}`, { method: 'DELETE' })
-    if (!res.ok && res.status !== 204) return
-    setItems(prev => prev.filter(x => x.id !== selected.id))
-    setSelected(null)
+  const res = await fetch(`${API_BASE_URL}/api/maintenance-staff/${selected.id}/`, { method: 'DELETE' })
+  if (!res.ok && res.status !== 204) { showError('Delete Failed', 'Unable to delete staff'); throw new Error('Delete failed') }
+  setItems(prev => prev.filter(x => x.id !== selected.id))
+  setSelected(null)
+  showSuccess('Staff Deleted', `Staff removed`)
   }
 
   const filtered = items.filter(i => [i.name, i.phone, i.email, i.specialization].join(' ').toLowerCase().includes(search.toLowerCase()))
+
+  // stats
+  const totalStaff = items.length
+  const uniqueSpecializations = new Set(items.map(i => (i.specialization || '').trim())).size
+  // fetch maintenance tasks and compute counts
+  const { data: maintenanceData, loading: maintenanceLoading } = usePolling<any[]>(`${API_BASE_URL}/api/maintenance/`, 15000, !open && !confirmOpen)
+
+  // maintenanceData expected shape: array of maintenance records with fields like { id, scheduled_date, assigned_to (m_staff_id), status }
+  const maintenance = Array.isArray(maintenanceData) ? maintenanceData : []
+
+  // upcoming tasks: scheduled_date within next 7 days and status not completed
+  const now = new Date()
+  const in7d = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const upcomingTasks = maintenance.filter(m => {
+    if (!m || !m.scheduled_date) return false
+    const d = new Date(m.scheduled_date)
+    const status = (m.status || "").toLowerCase()
+    return d >= now && d <= in7d && status !== 'completed' && status !== 'done'
+  }).length
+
+  // assigned maintenances: tasks that have an assigned technician
+  const assignedMaintenances = maintenance.filter(m => m && (m.assigned_to || m.assigned_to_id || m.m_staff_id)).length
 
   return (
     <div className="flex">
@@ -64,6 +93,13 @@ export default function MaintenanceStaffPage() {
           </div>
           <Button onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Staff</Button>
         </div>
+
+        <StatsCards stats={[
+          { title: 'Total Staff', value: <span className="text-purple-600">{totalStaff}</span>, subtitle: 'All technicians' },
+          { title: 'Specializations', value: <span className="text-green-600">{uniqueSpecializations}</span>, subtitle: 'Unique skills' },
+          { title: 'Upcoming Tasks', value: <span className="text-blue-600">{upcomingTasks}</span>, subtitle: 'Assigned soon' },
+          { title: 'Assigned Maint.', value: <span className="text-purple-600">{assignedMaintenances}</span>, subtitle: 'Total assigned' },
+        ]} />
 
         <Card>
           <CardHeader>

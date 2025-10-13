@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { SidebarNav } from "@/components/sidebar-nav"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,6 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Plus, Search, Edit, Trash2, ClipboardList } from "lucide-react"
 import { ConfirmationDialog } from "@/components/confirmation-dialog"
+import { useNotificationActions } from "@/components/notification-system"
+import StatsCards from "@/components/stats-cards"
+import usePolling from "@/lib/usePolling"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000"
 
@@ -19,12 +22,37 @@ export default function AssignmentsPage() {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<Assignment | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const { showSuccess, showError } = useNotificationActions()
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Active":
+        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400";
+      case "Pending":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400";
+      case "Returned":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400";
+      case "Overdue":
+        return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400";
+      case "Lost":
+        return "bg-zinc-100 text-zinc-800 dark:bg-zinc-900/20 dark:text-zinc-400";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400";
+    }
+  }
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`${API_BASE_URL}/api/assignments`)
-      const data = await res.json()
-      setItems(data.map((r: any) => ({ id: String(r.assignment_id), asset_id: r.asset_id, user_id: r.user_id, assigned_date: r.assigned_date, return_date: r.return_date, status: r.status, description: r.description, approved_by: r.approved_by })))
+      const res = await fetch(`${API_BASE_URL}/api/assignments/`)
+      if (!res.ok) {
+        let bodyText = ''
+        try { const j = await res.json(); bodyText = JSON.stringify(j) } catch { bodyText = await res.text().catch(() => '') }
+        console.error('Failed to load assignments', res.status, bodyText)
+        showError('Load Failed', bodyText || 'Unable to load assignments')
+        return
+      }
+  const data = await res.json()
+  setItems(data.map((r: any) => ({ id: String(r.assignment_id), asset_id: (r.asset ?? r.asset_id), user_id: (r.user ?? r.user_id), assigned_date: r.assigned_date, return_date: r.return_date, status: r.status, description: r.description, approved_by: r.approved_by })))
     })()
   }, [])
 
@@ -33,39 +61,98 @@ export default function AssignmentsPage() {
   function handleDelete(r: Assignment) { setSelected(r); setConfirmOpen(true) }
 
   async function onSave(data: Omit<Assignment,'id'>) {
-    const res = await fetch(`${API_BASE_URL}/api/assignments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...data, assigned_date: data.assigned_date || null, return_date: data.return_date || null }) })
-    if (!res.ok) return
+    // backend expects 'asset' and 'user' keys (FK fields)
+    const payload = { ...data, assigned_date: data.assigned_date || null, return_date: data.return_date || null, asset: data.asset_id, user: data.user_id }
+    const res = await fetch(`${API_BASE_URL}/api/assignments/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) {
+      // Try to parse validation errors as JSON and attach to the Error object
+      let bodyText = ''
+      let parsed: any = null
+      try { parsed = await res.json(); bodyText = JSON.stringify(parsed) } catch { bodyText = await res.text().catch(() => '') }
+      const err: any = new Error('Create failed')
+      if (parsed && typeof parsed === 'object') {
+        err.serverErrors = parsed
+        // show a short toast summary using friendly labels
+        const labels: Record<string,string> = { asset: 'Asset', user: 'User', assigned_date: 'Assigned Date', return_date: 'Return Date', status: 'Status', description: 'Description', approved_by: 'Approved By' }
+        const summary = Object.entries(parsed).map(([k, v]: any) => `${labels[k] ?? k}: ${Array.isArray(v) ? v.join('; ') : v}`).join(' — ')
+        showError('Create Failed', summary)
+      } else {
+        showError('Create Failed', bodyText || 'Unable to create assignment')
+      }
+      throw err
+    }
     const created = await res.json()
-    setItems(prev => [...prev, { id: String(created.assignment_id), asset_id: created.asset_id, user_id: created.user_id, assigned_date: created.assigned_date, return_date: created.return_date, status: created.status, description: created.description, approved_by: created.approved_by }])
+    const assetId = created.asset ?? created.asset_id
+    const userId = created.user ?? created.user_id
+    setItems(prev => [...prev, { id: String(created.assignment_id), asset_id: assetId, user_id: userId, assigned_date: created.assigned_date, return_date: created.return_date, status: created.status, description: created.description, approved_by: created.approved_by }])
   }
   async function onUpdate(id: string, data: Omit<Assignment,'id'>) {
-    const res = await fetch(`${API_BASE_URL}/api/assignments/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...data, assigned_date: data.assigned_date || null, return_date: data.return_date || null }) })
-    if (!res.ok) return
+    const payload = { ...data, assigned_date: data.assigned_date || null, return_date: data.return_date || null, asset: data.asset_id, user: data.user_id }
+    const res = await fetch(`${API_BASE_URL}/api/assignments/${id}/`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) {
+      let bodyText = ''
+      let parsed: any = null
+      try { parsed = await res.json(); bodyText = JSON.stringify(parsed) } catch { bodyText = await res.text().catch(() => '') }
+      const err: any = new Error('Update failed')
+      if (parsed && typeof parsed === 'object') {
+        err.serverErrors = parsed
+        const labels: Record<string,string> = { asset: 'Asset', user: 'User', assigned_date: 'Assigned Date', return_date: 'Return Date', status: 'Status', description: 'Description', approved_by: 'Approved By' }
+        const summary = Object.entries(parsed).map(([k, v]: any) => `${labels[k] ?? k}: ${Array.isArray(v) ? v.join('; ') : v}`).join(' — ')
+        showError('Update Failed', summary)
+      } else {
+        showError('Update Failed', bodyText || 'Unable to update assignment')
+      }
+      throw err
+    }
     const updated = await res.json()
-    setItems(prev => prev.map(x => x.id === id ? { id, asset_id: updated.asset_id, user_id: updated.user_id, assigned_date: updated.assigned_date, return_date: updated.return_date, status: updated.status, description: updated.description, approved_by: updated.approved_by } : x))
+    const assetId = updated.asset ?? updated.asset_id
+    const userId = updated.user ?? updated.user_id
+    setItems(prev => prev.map(x => x.id === id ? { id, asset_id: assetId, user_id: userId, assigned_date: updated.assigned_date, return_date: updated.return_date, status: updated.status, description: updated.description, approved_by: updated.approved_by } : x))
   }
   async function confirmDelete() {
     if (!selected) return
-    const res = await fetch(`${API_BASE_URL}/api/assignments/${selected.id}`, { method: 'DELETE' })
-    if (!res.ok && res.status !== 204) return
-    setItems(prev => prev.filter(x => x.id !== selected.id))
-    setSelected(null)
+    const res = await fetch(`${API_BASE_URL}/api/assignments/${selected.id}/`, { method: 'DELETE' })
+    if (!res.ok && res.status !== 204) {
+      let bodyText = ''
+      try { const j = await res.json(); bodyText = JSON.stringify(j) } catch { bodyText = await res.text().catch(() => '') }
+      showError('Delete Failed', bodyText || 'Unable to delete assignment')
+      throw new Error('Delete failed')
+    }
+  setItems(prev => prev.filter(x => x.id !== selected.id))
+  setSelected(null)
+  showSuccess('Assignment Deleted', `Assignment removed`)
   }
 
   const filtered = items.filter(i => [i.asset_id, i.user_id, i.status || '', i.description || ''].join(' ').toLowerCase().includes(search.toLowerCase()))
+
+  // Live polling of assignments so stats reflect recent changes
+  const { data: polledAssignments } = usePolling<any[]>(`${API_BASE_URL}/api/assignments/`, 15000, !open && !confirmOpen)
+  const allAssignments = Array.isArray(polledAssignments) ? polledAssignments.map((r:any) => ({ id: String(r.assignment_id), asset_id: (r.asset ?? r.asset_id), user_id: (r.user ?? r.user_id), assigned_date: r.assigned_date, return_date: r.return_date, status: r.status })) : items
+
+  const totalAssignments = items.length
+  const activeAssignments = items.filter(i => (i.status || '').toLowerCase() === 'active').length
+  const overdueAssignments = items.filter(i => i.return_date && new Date(i.return_date) < new Date() && ((i.status || '').toLowerCase() !== 'returned')).length
+  const upcomingReturns = items.filter(i => i.return_date && (() => { const d = new Date(i.return_date); const now = new Date(); const in7 = new Date(now.getTime() + 7*24*60*60*1000); return d >= now && d <= in7 })()).length
 
   // Simple inline form modal replacement to keep code short
   function AssignmentForm() {
     const isEdit = !!selected
     const [form, setForm] = useState<Omit<Assignment,'id'>>({ asset_id: selected?.asset_id || 0, user_id: selected?.user_id || 0, assigned_date: selected?.assigned_date || '', return_date: selected?.return_date || '', status: selected?.status || 'Active', description: selected?.description || '', approved_by: selected?.approved_by || '' })
-    const [assets, setAssets] = useState<any[]>([])
-    const [users, setUsers] = useState<any[]>([])
+  const [assets, setAssets] = useState<any[]>([])
+  const [users, setUsers] = useState<any[]>([])
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string,string[]>>({})
+  const [isSaving, setIsSaving] = useState(false)
+  const assetRef = useRef<HTMLSelectElement | null>(null)
+  const userRef = useRef<HTMLSelectElement | null>(null)
+  const statusRef = useRef<HTMLSelectElement | null>(null)
+  const assignedDateRef = useRef<HTMLInputElement | null>(null)
     useEffect(() => {
       (async () => {
         try {
           const [a, u] = await Promise.all([
-            fetch(`${API_BASE_URL}/api/assets`),
-            fetch(`${API_BASE_URL}/api/users`),
+            fetch(`${API_BASE_URL}/api/assets/`),
+            fetch(`${API_BASE_URL}/api/users/`),
           ])
           const aData = await a.json()
           const uData = await u.json()
@@ -81,21 +168,27 @@ export default function AssignmentsPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm">Asset</label>
-              <select className="w-full border border-input rounded-md px-3 py-2" value={form.asset_id} onChange={(e) => setForm({ ...form, asset_id: Number(e.target.value) })} aria-label="Select asset">
+              <select ref={assetRef} className="w-full border border-input rounded-md px-3 py-2" value={form.asset_id} onChange={(e) => setForm({ ...form, asset_id: Number(e.target.value) })} aria-label="Select asset">
                 <option value={0}>Select asset</option>
                 {assets.map(a => (<option key={a.id} value={a.id}>{a.name}</option>))}
               </select>
+              {fieldErrors['asset'] && (
+                <div className="text-sm text-destructive mt-1">{fieldErrors['asset'].join(' ')}</div>
+              )}
             </div>
             <div>
               <label className="text-sm">User</label>
-              <select className="w-full border border-input rounded-md px-3 py-2" value={form.user_id} onChange={(e) => setForm({ ...form, user_id: Number(e.target.value) })} aria-label="Select user">
+              <select ref={userRef} className="w-full border border-input rounded-md px-3 py-2" value={form.user_id} onChange={(e) => setForm({ ...form, user_id: Number(e.target.value) })} aria-label="Select user">
                 <option value={0}>Select user</option>
                 {users.map(u => (<option key={u.id} value={u.id}>{u.name}</option>))}
               </select>
+              {fieldErrors['user'] && (
+                <div className="text-sm text-destructive mt-1">{fieldErrors['user'].join(' ')}</div>
+              )}
             </div>
             <div>
               <label className="text-sm">Assigned Date</label>
-              <Input type="date" value={form.assigned_date || ''} onChange={(e) => setForm({ ...form, assigned_date: e.target.value })} />
+              <Input ref={assignedDateRef} type="date" value={form.assigned_date || ''} onChange={(e) => setForm({ ...form, assigned_date: e.target.value })} />
             </div>
             <div>
               <label className="text-sm">Return Date</label>
@@ -103,7 +196,17 @@ export default function AssignmentsPage() {
             </div>
             <div className="col-span-2">
               <label className="text-sm">Status</label>
-              <Input placeholder="Enter status (e.g., Active)" value={form.status || ''} onChange={(e) => setForm({ ...form, status: e.target.value })} />
+              <select ref={statusRef} className={`w-full border border-input rounded-md px-3 py-2 text-sm ${form.status ? getStatusColor(form.status) : ''}`} value={form.status || ''} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                <option value="">Select status</option>
+                <option value="Active">Active</option>
+                <option value="Pending">Pending</option>
+                <option value="Returned">Returned</option>
+                <option value="Overdue">Overdue</option>
+                <option value="Lost">Lost</option>
+              </select>
+              {fieldErrors['status'] && (
+                <div className="text-sm text-destructive mt-1">{fieldErrors['status'].join(' ')}</div>
+              )}
             </div>
             <div className="col-span-2">
               <label className="text-sm">Description</label>
@@ -115,9 +218,40 @@ export default function AssignmentsPage() {
             </div>
           </div>
           <div className="mt-4 flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => (isEdit ? onUpdate(selected!.id, form) : onSave(form)).then(() => setOpen(false))}>{isEdit ? 'Update' : 'Add'}</Button>
+              <Button variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>Cancel</Button>
+            <Button onClick={async () => {
+              setServerError(null)
+              setFieldErrors({})
+              setIsSaving(true)
+              try {
+                if (isEdit) await onUpdate(selected!.id, form)
+                else await onSave(form)
+                setOpen(false)
+                setSelected(null)
+              } catch (e: any) {
+                const msg = e?.message || 'Save failed'
+                // If serverErrors were attached, render them as fieldErrors
+                if (e?.serverErrors && typeof e.serverErrors === 'object') {
+                  const map: Record<string,string[]> = {}
+                  Object.entries(e.serverErrors).forEach(([k,v]) => { map[k] = Array.isArray(v) ? v.map(String) : [String(v)] })
+                  setFieldErrors(map)
+                    // autofocus first invalid field in priority order
+                    setTimeout(() => {
+                      if (map['asset'] && assetRef.current) { assetRef.current.focus(); return }
+                      if (map['user'] && userRef.current) { userRef.current.focus(); return }
+                      if (map['status'] && statusRef.current) { statusRef.current.focus(); return }
+                      if (map['assigned_date'] && assignedDateRef.current) { assignedDateRef.current.focus(); return }
+                    }, 0)
+                }
+                setServerError(String(msg))
+              } finally { setIsSaving(false) }
+            }} disabled={isSaving}>{isSaving ? (isEdit ? 'Updating…' : 'Adding…') : (isEdit ? 'Update' : 'Add')}</Button>
           </div>
+            {serverError && (
+              <div className="mt-4 rounded-md bg-destructive/10 border border-destructive p-3 text-destructive text-sm">
+                {serverError}
+              </div>
+            )}
         </div>
       </div>
     )
@@ -134,6 +268,13 @@ export default function AssignmentsPage() {
           </div>
           <Button onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Assignment</Button>
         </div>
+
+        <StatsCards stats={[
+          { title: 'Total Assignments', value: <span className="text-purple-600">{totalAssignments}</span>, subtitle: 'All assignments' },
+          { title: 'Active', value: <span className="text-green-600">{activeAssignments}</span>, subtitle: 'Currently assigned' },
+          { title: 'Overdue', value: <span className="text-red-600">{overdueAssignments}</span>, subtitle: 'Past return date' },
+          { title: 'Upcoming Returns', value: <span className="text-blue-600">{upcomingReturns}</span>, subtitle: 'Next 7 days' },
+        ]} />
 
         <Card>
           <CardHeader>
@@ -163,7 +304,13 @@ export default function AssignmentsPage() {
                     <TableCell>{r.user_id}</TableCell>
                     <TableCell className="text-muted-foreground">{r.assigned_date ? String(r.assigned_date).slice(0,10) : '-'}</TableCell>
                     <TableCell className="text-muted-foreground">{r.return_date ? String(r.return_date).slice(0,10) : '-'}</TableCell>
-                    <TableCell>{r.status || '-'}</TableCell>
+                      <TableCell>
+                        {r.status ? (
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(r.status)}`}>
+                            {r.status}
+                          </span>
+                        ) : '-'}
+                      </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="Edit"><Edit className="h-4 w-4"/></Button>

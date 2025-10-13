@@ -6,6 +6,9 @@ import { Analytics } from "@vercel/analytics/next";
 import { Suspense } from "react";
 import { NotificationProvider } from "@/components/notification-system";
 import "./globals.css";
+import RouteProgress from "@/components/route-progress"
+import { NavigationProvider } from "@/lib/navigation"
+import LivePollingProvider from "@/lib/live"
 
 export const metadata: Metadata = {
   title: "Asset Management System",
@@ -22,7 +25,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <NotificationProvider>
-          <Suspense fallback={null}>{children}</Suspense>
+          <LivePollingProvider>
+            <NavigationProvider>
+              <RouteProgress />
+              <Suspense fallback={<div className="min-h-screen" />}>{children}</Suspense>
+            </NavigationProvider>
+          </LivePollingProvider>
           <Analytics />
         </NotificationProvider>
       </body>

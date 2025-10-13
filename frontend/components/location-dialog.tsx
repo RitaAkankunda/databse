@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
+import { mapServerErrorsToFieldErrors, friendlySummary } from "@/lib/formUtils"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -35,6 +36,9 @@ export function LocationDialog({ open, onOpenChange, location, onSave, onUpdate 
     postal_address: "",
     geographical_location: "",
   })
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string,string[]>>({})
+  const buildingRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (location) {
@@ -48,14 +52,27 @@ export function LocationDialog({ open, onOpenChange, location, onSave, onUpdate 
     }
   }, [location, open])
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (isEdit && location) {
-      onUpdate(location.id, formData)
-    } else {
-      onSave(formData)
+    try {
+      if (isEdit && location) {
+        await onUpdate(location.id, formData)
+      } else {
+        await onSave(formData)
+      }
+      onOpenChange(false)
+    } catch (err) {
+      // attach inline errors if present
+      const parsed = (err as any)?.serverErrors
+      if (parsed) {
+        const map = mapServerErrorsToFieldErrors(parsed)
+        setFieldErrors(map)
+        setServerError(friendlySummary(parsed))
+        setTimeout(() => { if (map['building'] && buildingRef.current) buildingRef.current.focus() }, 0)
+      } else {
+        console.error('Save failed', err)
+      }
     }
-    onOpenChange(false)
   }
 
   function onChange(field: keyof Omit<LocationRecord, 'id'>, value: string) {
@@ -75,7 +92,8 @@ export function LocationDialog({ open, onOpenChange, location, onSave, onUpdate 
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="building">Building</Label>
-              <Input id="building" value={formData.building} onChange={(e) => onChange('building', e.target.value)} placeholder="Enter building (e.g., Block A)" />
+              <Input ref={buildingRef} id="building" value={formData.building} onChange={(e) => onChange('building', e.target.value)} placeholder="Enter building (e.g., Block A)" />
+              {fieldErrors['building'] && <div className="text-sm text-destructive">{fieldErrors['building'].join(' ')}</div>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="postal">Postal Address</Label>

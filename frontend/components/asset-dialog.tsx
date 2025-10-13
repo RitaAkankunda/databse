@@ -39,6 +39,7 @@ function getUserNames(): string[] {
 export function AssetDialog({ open, onOpenChange, asset, categories = [], suppliers = [], locations = [] }: AssetDialogProps) {
   const isEdit = !!asset
   const [userOptions, setUserOptions] = useState<string[]>([])
+  const [serverError, setServerError] = useState<string | null>(null)
 
   const [name, setName] = useState("")
   const [serialNumber, setSerialNumber] = useState("")
@@ -79,6 +80,14 @@ export function AssetDialog({ open, onOpenChange, asset, categories = [], suppli
     }
   }, [asset, open])
 
+  useEffect(() => {
+    function onError(e: any) {
+      setServerError(e?.detail?.message || String(e?.detail || 'Server error'))
+    }
+    window.addEventListener('asset:submit:error', onError as any)
+    return () => window.removeEventListener('asset:submit:error', onError as any)
+  }, [])
+
   function handleSubmit() {
     const result = {
       name: name.trim(),
@@ -95,7 +104,11 @@ export function AssetDialog({ open, onOpenChange, asset, categories = [], suppli
     // Bubble result via custom event on dialog element for parent to capture
     const evt = new CustomEvent("asset:submit", { detail: result })
     window.dispatchEvent(evt)
-    onOpenChange(false)
+      // Do not close the dialog here; the parent component should close the
+      // dialog only after the API call succeeds so the user sees validation
+      // errors when they occur. This lets the parent await the network result
+      // and call `onOpenChange(false)` when appropriate.
+      // onOpenChange(false)
   }
 
   return (
@@ -107,6 +120,11 @@ export function AssetDialog({ open, onOpenChange, asset, categories = [], suppli
             {isEdit ? "Update the asset information below." : "Fill in the details to add a new asset to the system."}
           </DialogDescription>
         </DialogHeader>
+        {serverError ? (
+          <div className="mx-6 -mt-4 mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
+            {serverError}
+          </div>
+        ) : null}
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

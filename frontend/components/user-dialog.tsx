@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { mapServerErrorsToFieldErrors, friendlySummary } from "@/lib/formUtils"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -78,16 +79,33 @@ export function UserDialog({ open, onOpenChange, user, onSave, onUpdate }: UserD
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    setFieldErrors({})
+    setServerError(null)
     if (!formData.name.trim() || !formData.email.trim()) {
-      alert("Please fill in all required fields")
+      setServerError('Please fill in all required fields')
       return
     }
-    if (isEdit && user) {
-      onUpdate(user.id, formData)
-    } else {
-      onSave(formData)
-    }
-    onOpenChange(false)
+    ;(async () => {
+      try {
+        if (isEdit && user) await onUpdate(user.id, formData)
+        else await onSave(formData)
+        onOpenChange(false)
+      } catch (e: any) {
+        const parsed = e?.serverErrors
+        if (parsed) {
+          const map = mapServerErrorsToFieldErrors(parsed)
+          setFieldErrors(map)
+          setTimeout(() => {
+            if (map['name'] && nameRef.current) { nameRef.current.focus(); return }
+            if (map['email'] && emailRef.current) { emailRef.current.focus(); return }
+          }, 0)
+          const summary = friendlySummary(parsed)
+          setServerError(summary)
+        } else {
+          setServerError(e?.message || 'Save failed')
+        }
+      }
+    })()
   }
 
   const handleInputChange = (field: string, value: string) => {
@@ -96,6 +114,11 @@ export function UserDialog({ open, onOpenChange, user, onSave, onUpdate }: UserD
       [field]: value
     }))
   }
+
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string,string[]>>({})
+  const nameRef = useRef<HTMLInputElement | null>(null)
+  const emailRef = useRef<HTMLInputElement | null>(null)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -113,22 +136,26 @@ export function UserDialog({ open, onOpenChange, user, onSave, onUpdate }: UserD
                 <Label htmlFor="name">Full Name *</Label>
                 <Input 
                   id="name" 
+                  ref={nameRef}
                   placeholder="Enter full name" 
                   value={formData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   required
                 />
+                {fieldErrors['name'] && <div className="text-sm text-destructive">{fieldErrors['name'].join(' ')}</div>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>
                 <Input 
                   id="email" 
+                  ref={emailRef}
                   type="email" 
                   placeholder="Enter email address" 
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   required
                 />
+                {fieldErrors['email'] && <div className="text-sm text-destructive">{fieldErrors['email'].join(' ')}</div>}
               </div>
             </div>
 
@@ -203,6 +230,7 @@ export function UserDialog({ open, onOpenChange, user, onSave, onUpdate }: UserD
               />
             </div>
           </div>
+          {serverError && <div className="mb-2 rounded-md bg-destructive/10 border border-destructive p-2 text-destructive text-sm">{serverError}</div>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

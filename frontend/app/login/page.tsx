@@ -40,9 +40,9 @@ export default function LoginPage() {
       toast.error(res.error || "Login failed")
       return;
     }
-    // on success show notification and go to dashboard
-    toast.success("Login successful")
-    router.push("/");
+  // on success show notification and go to dashboard
+  toast.success("Login successful")
+  router.push("/dashboard");
   }
 
   return (

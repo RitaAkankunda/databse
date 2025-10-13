@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -18,7 +19,8 @@ interface ConfirmationDialogProps {
   description: string
   confirmText?: string
   cancelText?: string
-  onConfirm: () => void
+  // onConfirm may be async; the dialog will await it and show a processing state
+  onConfirm: () => void | Promise<void>
   variant?: "default" | "destructive"
 }
 
@@ -32,9 +34,20 @@ export function ConfirmationDialog({
   onConfirm,
   variant = "default"
 }: ConfirmationDialogProps) {
-  const handleConfirm = () => {
-    onConfirm()
-    onOpenChange(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  const handleConfirm = async () => {
+    try {
+      setIsProcessing(true)
+      // allow onConfirm to be async
+      await Promise.resolve(onConfirm())
+    } catch (e) {
+      // swallow here; callers should show errors via notifications
+      console.error('Confirmation action failed', e)
+    } finally {
+      setIsProcessing(false)
+      onOpenChange(false)
+    }
   }
 
   return (
@@ -56,14 +69,15 @@ export function ConfirmationDialog({
           </div>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
             {cancelText}
           </Button>
           <Button 
             variant={variant === "destructive" ? "destructive" : "default"}
             onClick={handleConfirm}
+            disabled={isProcessing}
           >
-            {confirmText}
+            {isProcessing ? `${confirmText}…` : confirmText}
           </Button>
         </DialogFooter>
       </DialogContent>

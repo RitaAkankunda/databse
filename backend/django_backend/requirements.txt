@@ -1,0 +1,7 @@
+Django>=4.2
+djangorestframework>=3.14
+python-dotenv>=1.0
+dj-database-url>=1.0
+django-cors-headers>=4.0
+# Use mysql-connector-python for Windows-friendly MySQL connector; if you have build tools you can use mysqlclient instead
+mysql-connector-python>=8.0
