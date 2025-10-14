@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Management Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .chart-container { position: relative; height: 400px; margin: 20px 0; }
+        h1, h2 { color: #333; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0; }
+        .stat-card { background: #007bff; color: white; padding: 20px; border-radius: 8px; text-align: center; }
+        .stat-number { font-size: 2em; font-weight: bold; }
+        .stat-label { font-size: 0.9em; opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Asset Management System - Dashboard</h1>
+        
+        <!-- Key Statistics -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalAssets">17</div>
+                <div class="stat-label">Total Assets</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalValue">$89,500</div>
+                <div class="stat-label">Total Asset Value</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeUsers">10</div>
+                <div class="stat-label">Active Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="categories">8</div>
+                <div class="stat-label">Asset Categories</div>
+            </div>
+        </div>
+
+        <!-- Asset Distribution Pie Chart -->
+        <div class="card">
+            <h2>Asset Distribution by Category</h2>
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Monthly Purchase Trends -->
+        <div class="card">
+            <h2>Monthly Asset Purchase Trends</h2>
+            <div class="chart-container">
+                <canvas id="purchaseChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Department Asset Distribution -->
+        <div class="card">
+            <h2>Assets by Department</h2>
+            <div class="chart-container">
+                <canvas id="departmentChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Asset Status Distribution -->
+        <div class="card">
+            <h2>Asset Status Distribution</h2>
+            <div class="chart-container">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample data based on your populated database
+        // In a real implementation, you would fetch this data from your API
+
+        // Asset Distribution by Category (Pie Chart)
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        new Chart(categoryCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Computers & Laptops', 'Mobile Devices', 'Office Furniture', 'Network Equipment', 'Printers & Scanners', 'Vehicles'],
+                datasets: [{
+                    data: [4, 3, 3, 3, 2, 2],
+                    backgroundColor: [
+                        '#FF6384',
+                        '#36A2EB',
+                        '#FFCE56',
+                        '#4BC0C0',
+                        '#9966FF',
+                        '#FF9F40'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Monthly Purchase Trends (Bar Chart)
+        const purchaseCtx = document.getElementById('purchaseChart').getContext('2d');
+        new Chart(purchaseCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Jan 2023', 'Feb 2023', 'Mar 2023', 'Apr 2023', 'May 2023', 'Jun 2023', 'Jul 2023'],
+                datasets: [{
+                    label: 'Assets Purchased',
+                    data: [1, 1, 1, 1, 1, 1, 1],
+                    backgroundColor: '#36A2EB'
+                }, {
+                    label: 'Total Investment ($)',
+                    data: [1200, 1500, 2500, 1100, 999, 799, 1099],
+                    backgroundColor: '#4BC0C0',
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                    }
+                }
+            }
+        });
+
+        // Department Asset Distribution (Doughnut Chart)
+        const departmentCtx = document.getElementById('departmentChart').getContext('2d');
+        new Chart(departmentCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['IT', 'HR', 'Finance', 'Marketing', 'Operations', 'Sales', 'Maintenance'],
+                datasets: [{
+                    data: [3, 1, 1, 1, 1, 1, 1],
+                    backgroundColor: [
+                        '#FF6384',
+                        '#36A2EB',
+                        '#FFCE56',
+                        '#4BC0C0',
+                        '#9966FF',
+                        '#FF9F40',
+                        '#FF6384'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Asset Status Distribution (Pie Chart)
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        new Chart(statusCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Active', 'Maintenance', 'Disposed'],
+                datasets: [{
+                    data: [15, 1, 1],
+                    backgroundColor: [
+                        '#4BC0C0',
+                        '#FFCE56',
+                        '#FF6384'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

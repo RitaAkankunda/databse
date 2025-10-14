@@ -2,10 +2,15 @@
 
 This folder contains a minimal Django backend intended to replace the Node/Prisma backend. It exposes REST endpoints for `assets`, `users`, and `categories` and is configured to read database connection values from the local `.env` file in this folder.
 
-Prereqs
+## Prerequisites
 - Python 3.10+
 - virtualenv (optional)
-- MySQL reachable at the `DATABASE_URL` from the repo `.env` (currently points to your MySQL host)
+- MySQL Server (required)
+
+## Database Configuration
+This application uses MySQL as the primary database. See `SETUP.md` for detailed MySQL setup instructions.
+
+**Important**: Create a `.env` file in this directory before running the application. The `.env` file is gitignored for security.
 
 Quick start (PowerShell):
 
