@@ -5,6 +5,8 @@ from .views import (
     SupplierViewSet, LocationViewSet, MaintenanceStaffViewSet,
     MaintenanceViewSet, BuyerViewSet, DisposalViewSet,
     AssignmentViewSet, AssetValuationViewSet,
+    assets_by_category, valuation_histogram,
+    sales_report,
 )
 
 router = DefaultRouter()
@@ -23,4 +25,7 @@ router.register(r'valuations', AssetValuationViewSet, basename='valuation')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('reports/assets-by-category/', assets_by_category, name='assets-by-category'),
+    path('reports/valuation-histogram/', valuation_histogram, name='valuation-histogram'),
+    path('reports/sales/', sales_report, name='reports-sales'),
 ]

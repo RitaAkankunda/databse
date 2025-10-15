@@ -91,7 +91,14 @@ class AssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Asset
+        # Expose annotated read-only fields for the frontend to display
         fields = '__all__'
+        read_only_fields = ('current_holder_name', 'current_assignment_status', 'current_assignment_date')
+
+    # Read-only serializer fields mapped to annotated queryset attributes
+    current_holder_name = serializers.CharField(read_only=True)
+    current_assignment_status = serializers.CharField(read_only=True, allow_null=True)
+    current_assignment_date = serializers.DateField(read_only=True, allow_null=True)
 
 
 class SupplierSerializer(serializers.ModelSerializer):

@@ -72,72 +72,35 @@ WSGI_APPLICATION = 'backend_django.wsgi.application'
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 # Helper: prefer DATABASE_URL if set (works with dj-database-url), otherwise
-# honor DB_ENGINE and DB_* env vars. When DEBUG is True and no DB config is
-# provided, fall back to sqlite to make `runserver` safe for local development.
+# honor DB_ENGINE and DB_* env vars. This project requires a MySQL-compatible
+# database; sqlite fallback has been intentionally removed.
 if DATABASE_URL:
+    # Expect DATABASE_URL to point to a MySQL-compatible URL when used in this project
     DATABASES = {
         'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
 else:
     DB_ENGINE = os.getenv('DB_ENGINE')
-    # If DB_ENGINE not provided, assume sqlite in DEBUG, otherwise require vars
-    if not DB_ENGINE and DEBUG:
-        SQLITE_PATH = BASE_DIR / 'db.sqlite3'
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': str(SQLITE_PATH),
-            }
-        }
-    else:
-        # When DB_ENGINE is provided (eg. 'django.db.backends.mysql'), build config
-        DB_ENGINE = DB_ENGINE or 'django.db.backends.sqlite3'
-        if DB_ENGINE == 'django.db.backends.sqlite3':
-            SQLITE_PATH = BASE_DIR / 'db.sqlite3'
-            DATABASES = {
-                'default': {
-                    'ENGINE': 'django.db.backends.sqlite3',
-                    'NAME': str(SQLITE_PATH),
-                }
-            }
-        else:
-            DATABASES = {
-                'default': {
-                    'ENGINE': DB_ENGINE,
-                    'NAME': os.getenv('DB_NAME', ''),
-                    'USER': os.getenv('DB_USER', ''),
-                    'PASSWORD': os.getenv('DB_PASSWORD', ''),
-                    'HOST': os.getenv('DB_HOST', 'localhost'),
-                    'PORT': os.getenv('DB_PORT', ''),
-                }
-            }
+    # Require DB_ENGINE to be explicitly set to a MySQL backend (no sqlite)
+    if not DB_ENGINE:
+        raise RuntimeError("Database configuration missing: set DATABASE_URL or DB_ENGINE to a MySQL backend (e.g. 'django.db.backends.mysql'). sqlite is disabled.")
 
-            # If the configured backend requires an external DB driver that isn't
-            # installed (for example MySQL), fall back to sqlite when DEBUG is
-            # enabled so developers can run the dev server without the DB.
-            if DEBUG:
-                engine = DATABASES['default'].get('ENGINE', '')
-                needs_mysql = 'mysql' in engine or 'mysql' in os.getenv('DB_ENGINE', '')
-                if needs_mysql:
-                    # Try to detect installed MySQL client libraries
-                    try:
-                        import importlib
-                        # mysql-connector-python exposes 'mysql', mysqlclient exposes 'MySQLdb'
-                        mysql_module = importlib.import_module('mysql')
-                    except Exception:
-                        try:
-                            import importlib
-                            mysql_module = importlib.import_module('MySQLdb')
-                        except Exception:
-                            # No MySQL driver found; warn and switch to sqlite for dev
-                            print("WARNING: MySQL DB engine configured but no MySQL driver is installed. Falling back to sqlite because DEBUG=True.")
-                            SQLITE_PATH = BASE_DIR / 'db.sqlite3'
-                            DATABASES = {
-                                'default': {
-                                    'ENGINE': 'django.db.backends.sqlite3',
-                                    'NAME': str(SQLITE_PATH),
-                                }
-                            }
+    # Build config from DB_* env vars
+    DATABASES = {
+        'default': {
+            'ENGINE': DB_ENGINE,
+            'NAME': os.getenv('DB_NAME', ''),
+            'USER': os.getenv('DB_USER', ''),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', ''),
+        }
+    }
+
+    # If a non-sqlite engine is required but the engine isn't MySQL-like, warn
+    engine = DATABASES['default'].get('ENGINE', '')
+    if 'mysql' not in engine.lower() and 'mariadb' not in engine.lower():
+        raise RuntimeError(f"DB_ENGINE must be MySQL/MariaDB for this project; got '{engine}'.")
 
 AUTH_PASSWORD_VALIDATORS = []
 

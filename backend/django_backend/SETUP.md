@@ -87,3 +87,14 @@ pip install mysql-connector-python
 - Create your own `.env` file with your MySQL credentials
 - Use the same database name (`mydjangodb`) for consistency
 - Keep your MySQL credentials secure and don't share them in code
+
+### Important: sqlite removed
+- This project no longer supports the sqlite fallback. If you previously used `db.sqlite3` in development
+	it will no longer be used. You can safely remove the file from the project root after you've migrated data to
+	MySQL or if you no longer need it:
+
+```powershell
+del .\db.sqlite3
+```
+
+Be sure to back up the file first if you need to preserve any data.
