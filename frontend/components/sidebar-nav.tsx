@@ -73,7 +73,7 @@ export function SidebarNav() {
             <div>
               <h1 className="text-lg font-bold text-foreground">Asset Manager</h1>
               <div className="flex items-center gap-2">
-                <p className="text-xs text-muted-foreground">{user?.full_name || 'Guest'}</p>
+                <p className="text-xs text-muted-foreground">{user?.name || 'Guest'}</p>
                 {user?.role && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{String(user.role).toUpperCase()}</span>
                 )}
@@ -107,7 +107,8 @@ export function SidebarNav() {
       <nav className="flex-1 space-y-2 p-4">
         {allowedNav.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          // treat a nav item as active when the pathname equals the href or is a sub-route
+          const isActive = pathname === item.href || pathname?.startsWith(item.href + '/') ;
           return (
             <Link
               key={item.href}
@@ -116,13 +117,13 @@ export function SidebarNav() {
               className={cn(
                 "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 hover-lift group",
                 isActive
-                  ? "bg-gradient-primary text-white shadow-lg"
+                  ? "bg-green-100 text-green-700 shadow-lg"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               )}
             >
               <Icon className={cn(
                 "h-5 w-5 transition-all duration-300",
-                isActive ? "text-white" : "text-muted-foreground group-hover:text-foreground"
+                isActive ? "text-green-700" : "text-muted-foreground group-hover:text-foreground"
               )} />
               {item.title}
             </Link>

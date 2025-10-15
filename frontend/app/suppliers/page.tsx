@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { formatPhone } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -229,7 +230,7 @@ export default function SuppliersPage() {
                         {supplier.email}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {supplier.phone}
+                        {formatPhone(supplier.phone)}
                       </TableCell>
                       <TableCell>{supplier.address}</TableCell>
                       <TableCell className="text-right">

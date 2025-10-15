@@ -59,12 +59,14 @@ export default function RegisterPage() {
     }
 
     setSubmitting(true);
+    const allowedRoles = new Set(['admin','staff']);
+    const normalizedRole = allowedRoles.has(role) ? (role as 'admin' | 'staff') : 'staff';
     const res = registerUser({
-      full_name: fullName.trim(),
+      name: fullName.trim(),
       email: email.trim(),
       password,
       department,
-      role,
+      role: normalizedRole,
     });
     setSubmitting(false);
     if (!res.ok) {

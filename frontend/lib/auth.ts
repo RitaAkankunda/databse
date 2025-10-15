@@ -5,7 +5,7 @@
 
 export type UserRecord = {
   id: string;
-  full_name: string;
+  name: string;
   email: string;
   password: string; // hashed in real apps; plain for demo
   department: string;
@@ -64,11 +64,11 @@ export function registerUser(
     (u) => u.email.toLowerCase() === newUser.email.toLowerCase()
   );
   const existsByFullName = users.some(
-    (u) => u.full_name.toLowerCase() === newUser.full_name.toLowerCase()
+    (u) => u.name.toLowerCase() === newUser.name.toLowerCase()
   );
   if (existsByEmail) return { ok: false, error: "Email already registered" };
   if (existsByFullName)
-    return { ok: false, error: "Full name already registered" };
+    return { ok: false, error: "Name already registered" };
   // Ensure role is valid and default to 'staff'
   const allowedRoles = new Set(['admin', 'staff']);
   const role = newUser.role && allowedRoles.has(newUser.role) ? newUser.role : 'staff';
@@ -77,7 +77,7 @@ export function registerUser(
   writeUsers(users);
   // debug: newly registered user
   // eslint-disable-next-line no-console
-  console.debug('auth.registerUser -> registered', { id: user.id, full_name: user.full_name, email: user.email })
+  console.debug('auth.registerUser -> registered', { id: user.id, name: user.name, email: user.email })
   // auto-login on registration
   if (typeof window !== "undefined") {
     window.localStorage.setItem(SESSION_KEY, user.id);
@@ -86,16 +86,14 @@ export function registerUser(
 }
 
 export function loginWithFullName(
-  full_name: string,
+  name: string,
   password: string
 ): { ok: true } | { ok: false; error: string } {
   const users = readUsers();
-  const user = users.find(
-    (u) => u.full_name.trim().toLowerCase() === full_name.trim().toLowerCase()
-  );
+  const user = users.find((u) => u.name.trim().toLowerCase() === name.trim().toLowerCase());
   // debug: login attempt
   // eslint-disable-next-line no-console
-  console.debug('auth.loginWithFullName -> attempt', { full_name, found: !!user, usersCount: users.length })
+  console.debug('auth.loginWithFullName -> attempt', { name, found: !!user, usersCount: users.length })
   if (!user) return { ok: false, error: "User not found" };
   if (user.password !== password)
     return { ok: false, error: "Invalid password" };
@@ -116,7 +114,7 @@ export function loginByIdentifier(
   const id = identifier.trim();
   const lower = id.toLowerCase();
   const user = users.find(
-    (u) => u.full_name.trim().toLowerCase() === lower || u.email.trim().toLowerCase() === lower
+    (u) => u.name.trim().toLowerCase() === lower || u.email.trim().toLowerCase() === lower
   );
   // debug: login by identifier
   // eslint-disable-next-line no-console

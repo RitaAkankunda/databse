@@ -61,9 +61,9 @@ export default function LoginPage() {
           <p className="mb-6 text-sm text-muted-foreground">Enter your credentials to access the dashboard.</p>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="full_name" className="text-sm text-foreground">Full name</Label>
+              <Label htmlFor="name" className="text-sm text-foreground">Full name</Label>
               <Input
-                id="full_name"
+                id="name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Enter your full name"

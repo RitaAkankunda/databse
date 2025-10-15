@@ -55,7 +55,7 @@ export default function AssetsPage() {
     const sid = String(id)
     const users = Array.isArray(polledUsers) ? polledUsers : []
     const u = users.find((x:any) => String(x.user_id ?? x.id ?? x.pk ?? '') === sid)
-    if (u) return u.name ?? u.full_name ?? u.username ?? String(u.user_id ?? u.id ?? '')
+  if (u) return u.name ?? u.full_name ?? u.username ?? String(u.user_id ?? u.id ?? '')
     return null
   }
 
@@ -101,7 +101,7 @@ export default function AssetsPage() {
       const userMap: Record<string,string> = {}
       users.forEach((u:any) => {
         const uid = String(u.user_id ?? u.id ?? (typeof u === 'object' && (u.pk ?? u.pk) ? u.pk : ''))
-        userMap[uid] = u.name ?? u.full_name ?? u.username ?? (`User ${uid}`)
+  userMap[uid] = u.name ?? u.full_name ?? u.username ?? (`User ${uid}`)
       })
 
       const normalizeAssetId = (a: any) => {

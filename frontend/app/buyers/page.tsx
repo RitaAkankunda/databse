@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { formatPhone } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -206,7 +207,7 @@ export default function BuyersPage() {
                         {buyer.email}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {buyer.phone}
+                        {formatPhone(buyer.phone)}
                       </TableCell>
                       <TableCell>{buyer.address}</TableCell>
                       <TableCell>{buyer.tin}</TableCell>

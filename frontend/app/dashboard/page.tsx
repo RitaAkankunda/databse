@@ -125,7 +125,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between relative">
             <div>
               <h1 className="text-4xl font-bold text-foreground mb-2">
-                     Welcome back, {user?.full_name || 'User'}! 👋
+                     Welcome back, {user?.name || 'User'}! 👋
               </h1>
               <p className="text-lg text-muted-foreground">
                 Here's what's happening with your assets today

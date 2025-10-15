@@ -15,7 +15,7 @@ import usePolling from "@/lib/usePolling"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 
-type Category = { category_id: number; category_name: string; description?: string | null }
+type Category = { category_id: number; category_name: string; description?: string | null; created?: string | null }
 
 export default function CategoriesPage() {
 		const [categories, setCategories] = useState<CategoryType[]>([])
@@ -32,7 +32,7 @@ export default function CategoriesPage() {
 const { data: polledCategories } = usePolling<any[]>(`${API_BASE_URL}/api/categories/`, 30000, !isDialogOpen && !deleteConfirmOpen)
 const { data: polledAssets } = usePolling<any[]>(`${API_BASE_URL}/api/assets/`, 30000, !isDialogOpen && !deleteConfirmOpen)
 
-useEffect(() => { if (Array.isArray(polledCategories)) setCategories(polledCategories.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '' }))) }, [polledCategories])
+useEffect(() => { if (Array.isArray(polledCategories)) setCategories(polledCategories.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '', created: d.created_at ?? d.created ?? null }))) }, [polledCategories])
 
 const categoriesList = Array.isArray(polledCategories) ? polledCategories : categories
 const totalCategories = (categoriesList || []).length
@@ -52,8 +52,8 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 				try {
 					const res = await fetch(`${API_BASE_URL}/api/categories/`)
 					if (!res.ok) throw new Error('Failed to load categories')
-					const data: Array<{ category_id: number; category_name: string; description?: string | null }> = await res.json()
-					const normalized = data.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '' }))
+							const data: Array<{ category_id: number; category_name: string; description?: string | null; created_at?: string | null; created?: string | null }> = await res.json()
+							const normalized = data.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '', created: d.created_at ?? d.created ?? null }))
 					setCategories(normalized)
 				} catch (e) {
 					console.error(e)
@@ -65,9 +65,11 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 		const filtered = categories.filter(c => [String(c.id), c.category_name, c.description || ''].join(' ').toLowerCase().includes(search.toLowerCase()))
 	const pageItems = filtered
 
-	async function handleSave(data: { category_name: string; description?: string }) {
+	async function handleSave(data: { category_name: string; description?: string; created_at?: string }) {
 		try {
-			const res = await fetch(`${API_BASE_URL}/api/categories/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category_name: data.category_name, description: data.description }) })
+			const payload: any = { category_name: data.category_name, description: data.description };
+			if (data.created_at) payload.created_at = data.created_at;
+			const res = await fetch(`${API_BASE_URL}/api/categories/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
 			if (!res.ok) throw new Error('Create failed')
 			const created = await res.json()
 			// backend returns category object; normalize id field to string for our dialog usage
@@ -77,9 +79,11 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 		} catch (e:any) { console.error(e); showError('Create Failed', e?.message || 'Unable to create category') }
 	}
 
-	async function handleUpdate(id: string, data: { category_name: string; description?: string }) {
+	async function handleUpdate(id: string, data: { category_name: string; description?: string; created_at?: string }) {
 		try {
-			const res = await fetch(`${API_BASE_URL}/api/categories/${id}/`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category_name: data.category_name, description: data.description }) })
+			const payload: any = { category_name: data.category_name, description: data.description };
+			if (data.created_at) payload.created_at = data.created_at;
+			const res = await fetch(`${API_BASE_URL}/api/categories/${id}/`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
 			if (!res.ok) throw new Error('Update failed')
 			const updated = await res.json()
 			const normalized = { id: String(updated.category_id), category_name: updated.category_name, description: updated.description }
@@ -131,9 +135,9 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 							<TableHeader>
 								<TableRow>
 									<TableHead>Category ID</TableHead>
-									<TableHead>Category Name</TableHead>
-									<TableHead>Description</TableHead>
-									<TableHead className="text-right">Actions</TableHead>
+										<TableHead>Category Name</TableHead>
+										<TableHead>Description</TableHead>
+										<TableHead className="text-right">Actions</TableHead>
 								</TableRow>
 							</TableHeader>
 												<TableBody>
@@ -141,8 +145,8 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 														<TableRow key={c.id}>
 															<TableCell className="font-medium">{c.id}</TableCell>
 															<TableCell>{c.category_name}</TableCell>
-															<TableCell className="text-muted-foreground">{c.description || '-'}</TableCell>
-															<TableCell className="text-right">
+								<TableCell className="text-muted-foreground">{c.description || '-'}</TableCell>
+								<TableCell className="text-right">
 																<div className="flex justify-end gap-2">
 																	<Button variant="ghost" size="icon" onClick={() => { setSelectedCategory({ id: c.id, category_name: c.category_name, description: c.description || '' }); setIsDialogOpen(true) }} title="Edit"><Edit className="h-4 w-4"/></Button>
 																	<Button variant="ghost" size="icon" onClick={() => { setCategoryToDelete({ id: c.id, category_name: c.category_name, description: c.description || '' }); setDeleteConfirmOpen(true) }} title="Delete" className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4"/></Button>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 
 import { SidebarNav } from "@/components/sidebar-nav";
+import { formatPhone, formatNin } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -294,10 +295,10 @@ export default function UsersPage() {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.name}</TableCell>
                       <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                      <TableCell className="text-muted-foreground">{user.phone || "-"}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatPhone(user.phone)}</TableCell>
                       <TableCell>{user.department || "-"}</TableCell>
                       <TableCell>{user.position || "-"}</TableCell>
-                      <TableCell className="text-muted-foreground">{(user as any).nin || "-"}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatNin((user as any).nin)}</TableCell>
                       <TableCell>
                         <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(user.status)}`}>
                           {user.status}

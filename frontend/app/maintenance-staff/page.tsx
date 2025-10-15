@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { SidebarNav } from "@/components/sidebar-nav"
+import { formatPhone } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -125,7 +126,7 @@ export default function MaintenanceStaffPage() {
                 {filtered.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.phone || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatPhone(r.phone)}</TableCell>
                     <TableCell className="text-muted-foreground">{r.email || '-'}</TableCell>
                     <TableCell className="text-muted-foreground">{r.specialization || '-'}</TableCell>
                     <TableCell className="text-right">
