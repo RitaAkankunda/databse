@@ -74,7 +74,7 @@ export function CategoryDialog({ open, onOpenChange, category, onSave, onUpdate 
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit">{isEdit ? "Update Category" : "Add Category"}</Button>
+            <Button type="submit" variant="success">{isEdit ? "Update Category" : "Add Category"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

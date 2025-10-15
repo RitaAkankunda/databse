@@ -130,8 +130,9 @@ export default function ValuationsPage() {
                   <SelectValue placeholder="Select asset" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Select asset</SelectItem>
-                  {assets.map(a => (<SelectItem key={a.id} value={String(a.id)}>{a.name} ({a.id})</SelectItem>))}
+                  {assets.map(a => (
+                    <SelectItem key={a.id} value={String(a.id)}>{a.name} ({a.id})</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {fieldErrors['asset'] && (<div className="text-sm text-destructive mt-1">{fieldErrors['asset'].join(' ')}</div>)}
@@ -155,7 +156,7 @@ export default function ValuationsPage() {
           </div>
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={async () => {
+            <Button variant="success" onClick={async () => {
               setServerError(null)
               setFieldErrors({})
               try {
@@ -193,7 +194,7 @@ export default function ValuationsPage() {
             <h1 className="text-3xl font-bold text-foreground">Asset Valuations</h1>
             <p className="text-muted-foreground">Track value changes for assets</p>
           </div>
-          <Button onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Valuation</Button>
+          <Button variant="success" onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Valuation</Button>
         </div>
 
         {/* Stats cards for valuations */}

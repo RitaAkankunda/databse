@@ -18,12 +18,7 @@ import { DisposalDialog, Disposal } from "@/components/disposal-dialog";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { useNotificationActions } from "@/components/notification-system";
 
-const STORAGE_KEY = "database_disposal";
-
-// Generate a simple ID
-function generateId(): string {
-  return `disposal_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-}
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 
 export default function DisposalPage() {
   const [disposalRecords, setDisposalRecords] = useState<Disposal[]>([]);
@@ -36,22 +31,65 @@ export default function DisposalPage() {
   const [methodFilter, setMethodFilter] = useState<string>("All");
   const { showSuccess, showError } = useNotificationActions();
 
-  // Load disposal records from localStorage on component mount
-  useEffect(() => {
-    const savedDisposals = localStorage.getItem(STORAGE_KEY);
-    if (savedDisposals) {
-      try {
-        setDisposalRecords(JSON.parse(savedDisposals));
-      } catch (error) {
-        console.error("Error loading disposal records from localStorage:", error);
-      }
-    }
-  }, []);
+  // Load disposals, assets and buyers from the backend so records persist across reloads
+  const [assetsLookup, setAssetsLookup] = useState<Record<string,string>>({})
+  const [buyersList, setBuyersList] = useState<Array<{ id: string, name: string }>>([])
 
-  // Save disposal records to localStorage whenever disposal state changes
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(disposalRecords));
-  }, [disposalRecords]);
+    let mounted = true
+    ;(async () => {
+      try {
+        const [dRes, aRes, bRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/disposals/`),
+          fetch(`${API_BASE_URL}/api/assets/`),
+          fetch(`${API_BASE_URL}/api/buyers/`),
+        ])
+        if (!dRes.ok) { console.error('Failed to load disposals', dRes.status); return }
+        if (!aRes.ok) { console.error('Failed to load assets', aRes.status); }
+        if (!bRes.ok) { console.error('Failed to load buyers', bRes.status); }
+
+        const [dData, aData, bData] = await Promise.all([dRes.json(), aRes.json().catch(() => []), bRes.json().catch(() => [])])
+        if (!mounted) return
+
+        // build asset lookup map
+        const aMap: Record<string,string> = {}
+        if (Array.isArray(aData)) aData.forEach((x:any) => { aMap[String(x.asset_id ?? x.id ?? '')] = x.asset_name ?? x.name ?? `Asset ${x.asset_id ?? x.id ?? ''}` })
+        setAssetsLookup(aMap)
+
+        // buyers list for name matching
+        const bList: Array<{ id: string, name: string }> = []
+        if (Array.isArray(bData)) bData.forEach((x:any) => { bList.push({ id: String(x.buyer_id ?? x.id ?? ''), name: x.name ?? String(x.buyer_id ?? x.id ?? '') }) })
+        setBuyersList(bList)
+
+        // map disposals into the UI shape expected by this page
+        if (Array.isArray(dData)) {
+          const mapped = dData.map((r:any) => {
+            const assetId = r.asset ?? r.asset_id
+            const buyerId = r.buyer ?? r.buyer_id
+            const salePrice = Number(r.disposal_value ?? 0)
+            return {
+              id: String(r.disposal_id ?? r.id ?? ''),
+              asset: aMap[String(assetId)] ?? `Asset ${assetId}`,
+              assetId: String(assetId ?? ''),
+              disposalDate: r.disposal_date ?? '',
+              disposalMethod: salePrice > 0 ? 'Sale' : 'Other',
+              reason: r.reason ?? '',
+              buyer: (bList.find(b => b.id === String(buyerId))?.name) ?? '',
+              salePrice: salePrice,
+              status: (r.disposal_date ? 'Completed' : 'Pending') as Disposal['status'],
+              environmentalImpact: '' ,
+              approvedBy: r.approved_by ?? r.approvedBy ?? '',
+              certificateNumber: r.certificate_number ?? r.certificateNumber ?? undefined,
+              createdAt: r.created_at ?? r.createdAt ?? '',
+              updatedAt: r.updated_at ?? r.updatedAt ?? ''
+            }
+          })
+          setDisposalRecords(mapped)
+        }
+      } catch (e) { console.error('Failed to load disposal data', e) }
+    })()
+    return () => { mounted = false }
+  }, [])
 
   const filteredDisposals = disposalRecords.filter((disposal) => {
     const matchesSearch = 
@@ -66,24 +104,99 @@ export default function DisposalPage() {
     return matchesSearch && matchesStatus && matchesMethod
   });
 
-  const handleAddDisposal = (disposalData: Omit<Disposal, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newDisposal: Disposal = {
-      ...disposalData,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setDisposalRecords(prev => [...prev, newDisposal]);
-    showSuccess("Disposal Recorded", `Disposal of ${disposalData.asset} has been successfully recorded.`);
+  const handleAddDisposal = async (disposalData: Omit<Disposal, 'id' | 'createdAt' | 'updatedAt'>) => {
+    // Build payload matching backend serializer: asset (pk), disposal_date, disposal_value, reason, buyer (optional pk)
+    const payload: any = {
+      asset: disposalData.assetId ? Number(disposalData.assetId) : null,
+      disposal_date: disposalData.disposalDate || null,
+      disposal_value: disposalData.salePrice != null ? String(disposalData.salePrice) : null,
+      reason: disposalData.reason || ''
+    }
+    // attempt to map buyer name to an existing buyer id
+    if (disposalData.buyer) {
+      const match = buyersList.find(b => b.name === disposalData.buyer)
+      if (match) payload.buyer = Number(match.id)
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/disposals/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        showError('Create Failed', body || 'Unable to create disposal')
+        return
+      }
+      const created = await res.json()
+      // map server object into current UI shape
+      const assetId = created.asset ?? created.asset_id
+      const buyerId = created.buyer ?? created.buyer_id
+      const salePrice = Number(created.disposal_value ?? 0)
+      const mapped: Disposal = {
+        id: String(created.disposal_id ?? created.id ?? ''),
+        asset: assetsLookup[String(assetId)] ?? `Asset ${assetId}`,
+        assetId: String(assetId ?? ''),
+        disposalDate: created.disposal_date ?? '',
+        disposalMethod: salePrice > 0 ? 'Sale' : 'Other',
+        reason: created.reason ?? '',
+        buyer: buyersList.find(b => b.id === String(buyerId))?.name ?? '',
+        salePrice: salePrice,
+  status: (created.disposal_date ? 'Completed' : 'Pending') as Disposal['status'],
+        environmentalImpact: '',
+        approvedBy: created.approved_by ?? created.approvedBy ?? '',
+        certificateNumber: created.certificate_number ?? created.certificateNumber ?? undefined,
+        createdAt: created.created_at ?? created.createdAt ?? '',
+        updatedAt: created.updated_at ?? created.updatedAt ?? ''
+      }
+      setDisposalRecords(prev => [...prev, mapped])
+      showSuccess("Disposal Recorded", `Disposal of ${mapped.asset} has been successfully recorded.`)
+    } catch (e) {
+      console.error('Failed to create disposal', e)
+      showError('Create Failed', String(e))
+    }
   };
 
-  const handleUpdateDisposal = (id: string, disposalData: Omit<Disposal, 'id' | 'createdAt' | 'updatedAt'>) => {
-    setDisposalRecords(prev => prev.map(disposal => 
-      disposal.id === id 
-        ? { ...disposal, ...disposalData, updatedAt: new Date().toISOString() }
-        : disposal
-    ));
-    showSuccess("Disposal Updated", `Disposal record for ${disposalData.asset} has been successfully updated.`);
+  const handleUpdateDisposal = async (id: string, disposalData: Omit<Disposal, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const payload: any = {
+      asset: disposalData.assetId ? Number(disposalData.assetId) : null,
+      disposal_date: disposalData.disposalDate || null,
+      disposal_value: disposalData.salePrice != null ? String(disposalData.salePrice) : null,
+      reason: disposalData.reason || ''
+    }
+    if (disposalData.buyer) {
+      const match = buyersList.find(b => b.name === disposalData.buyer)
+      if (match) payload.buyer = Number(match.id)
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/disposals/${id}/`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        showError('Update Failed', body || 'Unable to update disposal')
+        return
+      }
+      const updated = await res.json()
+      const assetId = updated.asset ?? updated.asset_id
+      const buyerId = updated.buyer ?? updated.buyer_id
+      const salePrice = Number(updated.disposal_value ?? 0)
+      const mapped: Disposal = {
+        id: String(updated.disposal_id ?? updated.id ?? ''),
+        asset: assetsLookup[String(assetId)] ?? `Asset ${assetId}`,
+        assetId: String(assetId ?? ''),
+        disposalDate: updated.disposal_date ?? '',
+        disposalMethod: salePrice > 0 ? 'Sale' : 'Other',
+        reason: updated.reason ?? '',
+        buyer: buyersList.find(b => b.id === String(buyerId))?.name ?? '',
+        salePrice: salePrice,
+  status: (updated.disposal_date ? 'Completed' : 'Pending') as Disposal['status'],
+        environmentalImpact: '',
+        approvedBy: updated.approved_by ?? updated.approvedBy ?? '',
+        certificateNumber: updated.certificate_number ?? updated.certificateNumber ?? undefined,
+        createdAt: updated.created_at ?? updated.createdAt ?? '',
+        updatedAt: updated.updated_at ?? updated.updatedAt ?? ''
+      }
+      setDisposalRecords(prev => prev.map(d => d.id === id ? mapped : d))
+      showSuccess("Disposal Updated", `Disposal record for ${mapped.asset} has been successfully updated.`)
+    } catch (e) {
+      console.error('Failed to update disposal', e)
+      showError('Update Failed', String(e))
+    }
   };
 
   const handleDeleteDisposal = (disposal: Disposal) => {
@@ -93,9 +206,15 @@ export default function DisposalPage() {
 
   const confirmDelete = () => {
     if (disposalToDelete) {
-      setDisposalRecords(prev => prev.filter(disposal => disposal.id !== disposalToDelete.id));
-      showSuccess("Disposal Deleted", `Disposal record for ${disposalToDelete.asset} has been successfully deleted.`);
-      setDisposalToDelete(null);
+      (async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/disposals/${disposalToDelete.id}/`, { method: 'DELETE' })
+          if (!res.ok && res.status !== 204) { showError('Delete Failed', 'Unable to delete disposal'); return }
+          setDisposalRecords(prev => prev.filter(disposal => disposal.id !== disposalToDelete.id))
+          showSuccess("Disposal Deleted", `Disposal record for ${disposalToDelete.asset} has been successfully deleted.`)
+          setDisposalToDelete(null)
+        } catch (e) { console.error('Failed to delete disposal', e); showError('Delete Failed', String(e)) }
+      })()
     }
   };
 
@@ -178,7 +297,7 @@ export default function DisposalPage() {
               Track asset disposal and end-of-life processes
             </p>
           </div>
-          <Button onClick={handleAddNewDisposal} className="gap-2">
+          <Button variant="success" onClick={handleAddNewDisposal} className="gap-2">
             <Plus className="h-4 w-4" />
             Record Disposal
           </Button>

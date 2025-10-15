@@ -6,6 +6,19 @@ import usePolling from "@/lib/usePolling";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { getCurrentUser, type UserRecord } from "@/lib/auth";
 import { useEffect, useState } from "react";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip as ReTooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
+} from 'recharts';
 import { Button } from "@/components/ui/button";
 import { 
   TrendingUp, 
@@ -22,6 +35,8 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+const COLORS = ["#4f46e5", "#06b6d4", "#f97316", "#10b981", "#ef4444", "#a78bfa"];
+
 export default function DashboardPage() {
   const [user, setUser] = useState<UserRecord | null>(null);
   const [ready, setReady] = useState(false);
@@ -36,6 +51,65 @@ export default function DashboardPage() {
   const { data: polledAssets } = usePolling<any[]>(`${API_BASE_URL}/api/assets/`, 15000, true);
   const { data: polledUsers } = usePolling<any[]>(`${API_BASE_URL}/api/users/`, 15000, true);
   const { data: polledMaintenance } = usePolling<any[]>(`${API_BASE_URL}/api/maintenance/`, 15000, true);
+  // Reports polling
+  const { data: assetsByCategory } = usePolling<any[]>(`${API_BASE_URL}/api/reports/assets-by-category/`, 15000, true);
+  const { data: valuationHistogram } = usePolling<any[]>(`${API_BASE_URL}/api/reports/valuation-histogram/?bucket=1000`, 15000, true);
+  // Local fallback state for cases when polling is disabled or delayed
+  const [assetsByCategoryFallback, setAssetsByCategoryFallback] = useState<any[] | null>(null);
+  const [valuationHistogramFallback, setValuationHistogramFallback] = useState<any[] | null>(null);
+
+  // Helper to normalize different possible response shapes (array or { value: [...] })
+  const normalizeList = (raw: any, fallback: any[] | null) => {
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.value)) return raw.value;
+    return fallback ?? [];
+  };
+
+  const assetsData = normalizeList(assetsByCategory, assetsByCategoryFallback);
+  const valuationData = normalizeList(valuationHistogram, valuationHistogramFallback);
+
+  // If polling hasn't returned yet (null), attempt a one-off fetch so charts can render immediately
+  useEffect(() => {
+    let mounted = true;
+    async function fetchFallback() {
+      try {
+        if (assetsByCategory === null && assetsByCategoryFallback === null) {
+          const r = await fetch(`${API_BASE_URL}/api/reports/assets-by-category/`);
+          const j = await r.json();
+          if (!mounted) return;
+          setAssetsByCategoryFallback(Array.isArray(j) ? j : (j && Array.isArray(j.value) ? j.value : []));
+        }
+        if (valuationHistogram === null && valuationHistogramFallback === null) {
+          const r2 = await fetch(`${API_BASE_URL}/api/reports/valuation-histogram/?bucket=1000`);
+          const j2 = await r2.json();
+          if (!mounted) return;
+          setValuationHistogramFallback(Array.isArray(j2) ? j2 : (j2 && Array.isArray(j2.value) ? j2.value : []));
+        }
+      } catch (e) {
+        // ignore fetch errors here; polling will surface them via hook
+      }
+    }
+    fetchFallback();
+    return () => { mounted = false };
+  }, [assetsByCategory, valuationHistogram]);
+
+  // manual refresh helper for the debug panel
+  async function refreshReports() {
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/reports/assets-by-category/`);
+      const j = await r.json();
+      setAssetsByCategoryFallback(Array.isArray(j) ? j : (j && Array.isArray(j.value) ? j.value : []));
+    } catch (e) {
+      // ignore
+    }
+    try {
+      const r2 = await fetch(`${API_BASE_URL}/api/reports/valuation-histogram/?bucket=1000`);
+      const j2 = await r2.json();
+      setValuationHistogramFallback(Array.isArray(j2) ? j2 : (j2 && Array.isArray(j2.value) ? j2.value : []));
+    } catch (e) {
+      // ignore
+    }
+  }
   const { data: polledAssignments } = usePolling<any[]>(`${API_BASE_URL}/api/assignments/`, 15000, true);
 
   const totalAssets = Array.isArray(polledAssets) ? polledAssets.length : "-";
@@ -152,103 +226,67 @@ export default function DashboardPage() {
 
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-3">
-          {/* Recent Assets */}
-          <div className="lg:col-span-2">
-            <Card className="card-modern">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl font-semibold">Recent Assets</CardTitle>
-                  <Button variant="outline" size="sm" className="btn-secondary">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Asset
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentAssets.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No assets yet. Add your first asset to get started!</p>
-                    </div>
-                  )}
-                  {recentAssets.map((a: any, index) => (
-                    <div key={a.asset_id} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors animate-fade-in-up" style={{animationDelay: `${index * 100}ms`}}>
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <Package className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">{a.asset_name}</p>
-                          <p className="text-sm text-muted-foreground">Serial: {a.serial_number || "N/A"}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`badge-${a.status === 'Active' ? 'success' : a.status === 'Maintenance' ? 'warning' : 'error'}`}>
-                          {a.status || 'Unknown'}
-                        </span>
-                        <Button variant="ghost" size="sm">
-                          <ArrowUpRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Recent Assets removed per user request */}
 
-          {/* Quick Actions & Analytics */}
+          {/* Right column: Reports and debug panels (Quick Actions & System Health removed) */}
           <div className="space-y-6">
+            {/* Reports debug card removed per user request */}
+            {/* Reports: Assets by Category (Pie) */}
             <Card className="card-modern">
               <CardHeader>
-                <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+                <CardTitle className="text-lg font-semibold">Assets by Category</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <Button className="w-full btn-primary justify-start">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add New Asset
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Users className="h-4 w-4 mr-2" />
-                  Manage Users
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Wrench className="h-4 w-4 mr-2" />
-                  Schedule Maintenance
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  View Reports
-                </Button>
+              <CardContent>
+                {Array.isArray(assetsData) && assetsData.length > 0 ? (
+                  <div style={{ width: '100%', height: 220 }} className="mx-auto">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={assetsData.map((r: any) => ({ name: r.category, value: r.count }))}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={70}
+                          innerRadius={30}
+                          label
+                        >
+                          {assetsData.map((_: any, index: number) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <ReTooltip />
+                        <Legend verticalAlign="bottom" height={36} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No category data yet</div>
+                )}
               </CardContent>
             </Card>
 
+            {/* Reports: Valuation histogram (Bar) */}
             <Card className="card-modern">
               <CardHeader>
-                <CardTitle className="text-lg font-semibold">System Health</CardTitle>
+                <CardTitle className="text-lg font-semibold">Valuation Histogram</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Database Status</span>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium text-green-600">Online</span>
-                    </div>
+                {Array.isArray(valuationData) && valuationData.length > 0 ? (
+                  <div style={{ width: '100%', height: 220 }}>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={valuationData.map((b: any) => ({ bucket: String(b.bucket), count: b.count }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="bucket" />
+                        <YAxis />
+                        <ReTooltip />
+                        <Bar dataKey="count" fill={COLORS[0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">API Response</span>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                      <span className="text-sm font-medium text-green-600">Fast</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Last Backup</span>
-                    <span className="text-sm text-muted-foreground">2 hours ago</span>
-                  </div>
-                </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No valuation data yet</div>
+                )}
               </CardContent>
             </Card>
           </div>

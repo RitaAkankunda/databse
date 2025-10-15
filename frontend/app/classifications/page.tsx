@@ -173,7 +173,7 @@ export default function ClassificationsPage() {
             <h1 className="text-3xl font-bold text-foreground">Classifications</h1>
             <p className="text-muted-foreground">Organize assets by category and type</p>
           </div>
-          <Button onClick={handleAddNewClassification} className="gap-2">
+          <Button variant="success" onClick={handleAddNewClassification} className="gap-2">
             <Plus className="h-4 w-4" />
             Add Classification
           </Button>

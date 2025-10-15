@@ -140,7 +140,7 @@ export function ClassificationDialog({ open, onOpenChange, classification, onSav
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">{isEdit ? "Update Classification" : "Add Classification"}</Button>
+            <Button type="submit" variant="success">{isEdit ? "Update Classification" : "Add Classification"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

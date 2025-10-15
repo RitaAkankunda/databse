@@ -43,6 +43,8 @@ interface DisposalDialogProps {
 
 export function DisposalDialog({ open, onOpenChange, disposal, onSave, onUpdate }: DisposalDialogProps) {
   const isEdit = !!disposal
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+  const [assets, setAssets] = useState<any[]>([])
   const [formData, setFormData] = useState({
     asset: "",
     assetId: "",
@@ -91,6 +93,23 @@ export function DisposalDialog({ open, onOpenChange, disposal, onSave, onUpdate 
       })
     }
   }, [disposal, open])
+
+  // Load assets so disposal dropdown matches the main assets list
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/assets/`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!mounted) return
+        if (Array.isArray(data)) {
+          setAssets(data.map((x: any) => ({ id: String(x.asset_id ?? x.id ?? ''), name: x.asset_name ?? x.name ?? `Asset ${x.asset_id ?? x.id ?? ''}` })))
+        }
+      } catch (e) { /* ignore */ }
+    })()
+    return () => { mounted = false }
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -149,12 +168,13 @@ export function DisposalDialog({ open, onOpenChange, disposal, onSave, onUpdate 
                     <SelectValue placeholder="Select asset" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Old Desktop Computer (AST-089)">Old Desktop Computer (AST-089)</SelectItem>
-                    <SelectItem value="Broken Office Chair (AST-156)">Broken Office Chair (AST-156)</SelectItem>
-                    <SelectItem value="Outdated Server (AST-045)">Outdated Server (AST-045)</SelectItem>
-                    <SelectItem value="Damaged Printer (AST-078)">Damaged Printer (AST-078)</SelectItem>
-                    <SelectItem value="Worn-out Laptop (AST-123)">Worn-out Laptop (AST-123)</SelectItem>
-                    <SelectItem value="Obsolete Monitor (AST-234)">Obsolete Monitor (AST-234)</SelectItem>
+                      {assets.length === 0 ? (
+                        <div className="p-3 text-sm text-muted-foreground">No assets available</div>
+                      ) : (
+                        assets.map(a => (
+                          <SelectItem key={a.id} value={`${a.name} (${a.id})`}>{a.name} ({a.id})</SelectItem>
+                        ))
+                      )}
                   </SelectContent>
                 </Select>
               </div>
@@ -296,7 +316,7 @@ export function DisposalDialog({ open, onOpenChange, disposal, onSave, onUpdate 
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">{isEdit ? "Update Disposal" : "Record Disposal"}</Button>
+            <Button type="submit" variant="success">{isEdit ? "Update Disposal" : "Record Disposal"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

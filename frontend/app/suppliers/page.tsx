@@ -164,6 +164,7 @@ export default function SuppliersPage() {
             </p>
           </div>
           <Button
+            variant="success"
             onClick={() => {
               setSelectedSupplier(null);
               setIsDialogOpen(true);

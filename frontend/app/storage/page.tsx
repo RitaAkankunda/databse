@@ -140,7 +140,7 @@ export default function StoragePage() {
             <h1 className="text-3xl font-bold text-foreground">Storage Locations</h1>
             <p className="text-muted-foreground">Manage storage locations and capacity</p>
           </div>
-          <Button onClick={handleAddNewStorage} className="gap-2">
+          <Button variant="success" onClick={handleAddNewStorage} className="gap-2">
             <Plus className="h-4 w-4" />
             Add Location
           </Button>

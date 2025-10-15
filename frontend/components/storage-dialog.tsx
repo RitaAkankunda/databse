@@ -202,7 +202,7 @@ export function StorageDialog({ open, onOpenChange, storage, onSave, onUpdate }:
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">{isEdit ? "Update Location" : "Add Location"}</Button>
+            <Button type="submit" variant="success">{isEdit ? "Update Location" : "Add Location"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

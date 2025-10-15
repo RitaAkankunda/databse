@@ -188,7 +188,7 @@ export default function UsersPage() {
             <h1 className="text-3xl font-bold text-foreground">Users</h1>
             <p className="text-muted-foreground">Manage users and their information</p>
           </div>
-          <Button onClick={handleAddNewUser} className="gap-2">
+          <Button variant="success" onClick={handleAddNewUser} className="gap-2">
             <Plus className="h-4 w-4" />
             Add User
           </Button>

@@ -17,6 +17,7 @@ import {
   ClipboardList,
   UserCog,
   ReceiptText,
+  BarChart3,
 } from "lucide-react";
 import { getCurrentUser, logout, type UserRecord } from "@/lib/auth";
 import { useEffect, useState } from "react";
@@ -28,6 +29,7 @@ const navItems = [
   // 2) Masters that assets depend on
   { title: "Categories", href: "/categories", icon: FolderTree },
   { title: "Suppliers", href: "/suppliers", icon: Building2 },
+  { title: "Buyers", href: "/buyers", icon: ReceiptText },
   { title: "Locations", href: "/locations", icon: Warehouse },
   { title: "Users", href: "/users", icon: Users },
   // 3) Core operations
@@ -37,6 +39,7 @@ const navItems = [
   { title: "Maintenance Staff", href: "/maintenance-staff", icon: UserCog },
   { title: "Asset Valuation", href: "/valuations", icon: ReceiptText },
   { title: "Disposal", href: "/disposal", icon: Trash2 },
+  { title: "Statistics", href: "/statistics", icon: BarChart3 },
   // 4) Auth
   { title: "Login", href: "/login", icon: LogIn },
   { title: "Register", href: "/register", icon: UserPlus },

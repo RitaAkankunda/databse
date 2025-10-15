@@ -47,70 +47,75 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen grid place-items-center p-6 route-container">
-      <div className="landing-card grid grid-cols-1 md:grid-cols-2 w-full max-w-4xl bg-card">
-        <div className="landing-left p-10 text-white hidden md:flex items-center justify-center">
+      <div className="landing-card grid grid-cols-1 md:grid-cols-2 w-full max-w-4xl bg-transparent shadow-lg rounded-lg overflow-hidden">
+        {/* left gradient welcome panel */}
+        <div className="hidden md:flex items-center justify-center bg-gradient-to-br from-green-600 to-teal-500 p-12 text-white">
           <div className="max-w-sm">
-            <h2 className="text-3xl font-extrabold tracking-tight mb-2">Welcome back</h2>
+            <h2 className="text-4xl font-extrabold tracking-tight mb-3">Welcome back</h2>
             <p className="opacity-90">Sign in to continue managing your assets.</p>
           </div>
         </div>
-        <div className="p-8 md:p-10">
-          <h2 className="mb-2 text-2xl font-semibold">Login</h2>
+        {/* right white form panel */}
+        <div className="p-8 md:p-10 bg-white text-foreground">
+          <h2 className="mb-2 text-2xl font-semibold text-foreground">Login</h2>
           <p className="mb-6 text-sm text-muted-foreground">Enter your credentials to access the dashboard.</p>
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="full_name">Full name</Label>
-          <Input
-            id="full_name"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            placeholder="Enter your full name"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-            />
-            <button
-              type="button"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground px-2 py-1 focus:outline-none"
-              onClick={() => setShowPassword((v) => !v)}
-              tabIndex={-1}
-            >
-              {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
-            </button>
-          </div>
-        </div>
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={() => setRememberMe((v) => !v)}
-              className="accent-primary"
-            />
-            Remember me
-          </label>
-          <Link href="/forgot-password" className="text-sm text-primary underline-offset-4 hover:underline">Forgot password?</Link>
-        </div>
-        {error && (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        )}
-        <Button type="submit" disabled={submitting} className="w-full">
-          {submitting ? "Signing in..." : "Login"}
-        </Button>
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          Don't have an account? <Link href="/register" className="text-primary underline-offset-4 hover:underline">Register</Link>
-        </p>
-      </form>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="full_name" className="text-sm text-foreground">Full name</Label>
+              <Input
+                id="full_name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Enter your full name"
+                className="bg-input/50 text-foreground placeholder:text-muted-foreground border border-input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm text-foreground">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="bg-input/50 text-foreground placeholder:text-muted-foreground border border-input pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground px-2 py-1 focus:outline-none"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={() => setRememberMe((v) => !v)}
+                  className="accent-primary"
+                />
+                Remember me
+              </label>
+              <Link href="/forgot-password" className="text-sm text-primary underline-offset-4 hover:underline">Forgot password?</Link>
+            </div>
+            {error && (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+            <Button type="submit" disabled={submitting} variant="success" className="w-full">
+              {submitting ? "Signing in..." : "Login"}
+            </Button>
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              Don't have an account? <Link href="/register" className="text-primary underline-offset-4 hover:underline">Register</Link>
+            </p>
+          </form>
         </div>
       </div>
     </div>

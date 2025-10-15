@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const USERS_STORAGE_KEY = "ams.usersDirectory";
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -24,21 +26,9 @@ interface AssetDialogProps {
   locations?: Array<{ id: number; name: string }>
 }
 
-const USERS_STORAGE_KEY = "ams.usersDirectory";
-function getUserNames(): string[] {
-  if (typeof window === "undefined") return []
-  try {
-    const raw = window.localStorage.getItem(USERS_STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.map((u: any) => String(u.name || "")).filter(Boolean)
-  } catch { return [] }
-}
-
 export function AssetDialog({ open, onOpenChange, asset, categories = [], suppliers = [], locations = [] }: AssetDialogProps) {
   const isEdit = !!asset
-  const [userOptions, setUserOptions] = useState<string[]>([])
+  const [userOptions, setUserOptions] = useState<Array<{ id: string; name: string }>>([])
   const [serverError, setServerError] = useState<string | null>(null)
 
   const [name, setName] = useState("")
@@ -51,9 +41,33 @@ export function AssetDialog({ open, onOpenChange, asset, categories = [], suppli
   const [purchaseDate, setPurchaseDate] = useState("")
   const [warrantyExpiry, setWarrantyExpiry] = useState("")
   const [currentValue, setCurrentValue] = useState("")
+  const [assignedTo, setAssignedTo] = useState<string>("")
 
   useEffect(() => {
-    setUserOptions(getUserNames())
+    // Fetch users from the API for the Assigned To select. Fall back to
+    // the lighter-weight localStorage approach if API fails.
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/users/`)
+        if (!res.ok) throw new Error('Failed to load users')
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          setUserOptions(data.map((u:any) => ({ id: String(u.user_id ?? u.id ?? u.pk ?? ''), name: u.name ?? u.full_name ?? u.username ?? `User ${u.user_id ?? u.id ?? ''}` })).filter(u => u.id))
+        }
+      } catch {
+        try {
+          // localStorage fallback for offline/demo mode
+          const raw = window.localStorage.getItem(USERS_STORAGE_KEY)
+          if (!raw) return
+          const parsed = JSON.parse(raw)
+          if (!Array.isArray(parsed)) return
+          setUserOptions(parsed.map((u: any) => ({ id: String(u.user_id ?? u.id ?? ''), name: String(u.name || u.full_name || u.username || '') })).filter(Boolean))
+        } catch {
+          // ignore
+        }
+      }
+    }
+  loadUsers()
     if (asset) {
       setName(asset.name ?? "")
       setSerialNumber(asset.serialNumber ?? "")
@@ -78,7 +92,15 @@ export function AssetDialog({ open, onOpenChange, asset, categories = [], suppli
       setWarrantyExpiry("")
       setCurrentValue("")
     }
+    // defer preselection to a separate effect that runs when userOptions change
   }, [asset, open])
+
+  useEffect(() => {
+    if (!asset || !asset.current_holder_name) return
+    if (!Array.isArray(userOptions) || userOptions.length === 0) return
+    const m = userOptions.find(u => u.name === asset.current_holder_name)
+    if (m) setAssignedTo(m.id)
+  }, [userOptions, asset])
 
   useEffect(() => {
     function onError(e: any) {
@@ -100,6 +122,7 @@ export function AssetDialog({ open, onOpenChange, asset, categories = [], suppli
       supplierId: supplierId ? Number(supplierId) : null,
       purchaseDate: purchaseDate || null,
       warrantyExpiry: warrantyExpiry || null,
+      assignedTo: assignedTo || null,
     }
     // Bubble result via custom event on dialog element for parent to capture
     const evt = new CustomEvent("asset:submit", { detail: result })
@@ -223,7 +246,7 @@ export function AssetDialog({ open, onOpenChange, asset, categories = [], suppli
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>{isEdit ? "Update Asset" : "Add Asset"}</Button>
+          <Button variant="success" onClick={handleSubmit}>{isEdit ? "Update Asset" : "Add Asset"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

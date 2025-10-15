@@ -235,7 +235,7 @@ export function UserDialog({ open, onOpenChange, user, onSave, onUpdate }: UserD
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">{isEdit ? "Update User" : "Add User"}</Button>
+            <Button type="submit" variant="success">{isEdit ? "Update User" : "Add User"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -105,7 +105,7 @@ export default function LocationsPage() {
             <h1 className="text-3xl font-bold text-foreground">Locations</h1>
             <p className="text-muted-foreground">Manage physical locations where assets reside</p>
           </div>
-          <Button onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Location</Button>
+          <Button variant="success" onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Location</Button>
         </div>
 
         {/* Stats cards */}

@@ -91,7 +91,7 @@ export default function MaintenanceStaffPage() {
             <h1 className="text-3xl font-bold text-foreground">Maintenance Staff</h1>
             <p className="text-muted-foreground">Manage technicians who service assets</p>
           </div>
-          <Button onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Staff</Button>
+          <Button variant="success" onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Staff</Button>
         </div>
 
         <StatsCards stats={[

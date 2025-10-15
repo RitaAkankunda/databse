@@ -22,7 +22,30 @@ export default function AssignmentsPage() {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<Assignment | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [assetsLookup, setAssetsLookup] = useState<Record<string,string>>({})
+  const [usersLookup, setUsersLookup] = useState<Record<string,string>>({})
   const { showSuccess, showError } = useNotificationActions()
+
+  // Helpers to normalize date values from the API which may be null,
+  // an ISO string, or in some cases nested objects or different key names.
+  const normalizeDate = (val: any) => {
+    if (!val && val !== 0) return null
+    if (typeof val === 'string') return val
+    if (val instanceof Date) return val.toISOString().slice(0,10)
+    if (typeof val === 'object') {
+      // common nested shapes: { date: 'YYYY-MM-DD' } or { value: '...' }
+      if (val.date) return String(val.date)
+      if (val.value) return String(val.value)
+      // fallback to JSON string
+      try { return JSON.stringify(val) } catch { return null }
+    }
+    return String(val)
+  }
+
+  const formatDateCell = (v: any) => {
+    const d = normalizeDate(v)
+    return d ? String(d).slice(0,10) : '-'
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -52,7 +75,7 @@ export default function AssignmentsPage() {
         return
       }
   const data = await res.json()
-  setItems(data.map((r: any) => ({ id: String(r.assignment_id), asset_id: (r.asset ?? r.asset_id), user_id: (r.user ?? r.user_id), assigned_date: r.assigned_date, return_date: r.return_date, status: r.status, description: r.description, approved_by: r.approved_by })))
+  setItems(data.map((r: any) => ({ id: String(r.assignment_id), asset_id: (r.asset ?? r.asset_id), user_id: (r.user ?? r.user_id), assigned_date: normalizeDate(r.assigned_date ?? r.assignedDate ?? r.assigned_on), return_date: normalizeDate(r.return_date ?? r.returnDate ?? r.returned_on ?? r.returned_date), status: r.status, description: r.description, approved_by: r.approved_by })))
     })()
   }, [])
 
@@ -125,9 +148,32 @@ export default function AssignmentsPage() {
 
   const filtered = items.filter(i => [i.asset_id, i.user_id, i.status || '', i.description || ''].join(' ').toLowerCase().includes(search.toLowerCase()))
 
+  // Load lookup maps for assets and users so we can display names instead of raw IDs
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const [aRes, uRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/assets/`),
+          fetch(`${API_BASE_URL}/api/users/`)
+        ])
+        if (!aRes.ok || !uRes.ok) return
+        const [aData, uData] = await Promise.all([aRes.json(), uRes.json()])
+        if (!mounted) return
+        const aMap: Record<string,string> = {}
+        const uMap: Record<string,string> = {}
+        if (Array.isArray(aData)) aData.forEach((x:any) => { aMap[String(x.asset_id ?? x.id ?? '')] = x.asset_name ?? x.name ?? `Asset ${x.asset_id ?? x.id ?? ''}` })
+        if (Array.isArray(uData)) uData.forEach((x:any) => { uMap[String(x.user_id ?? x.id ?? '')] = x.name ?? `User ${x.user_id ?? x.id ?? ''}` })
+        setAssetsLookup(aMap)
+        setUsersLookup(uMap)
+      } catch (e) { /* ignore */ }
+    })()
+    return () => { mounted = false }
+  }, [])
+
   // Live polling of assignments so stats reflect recent changes
   const { data: polledAssignments } = usePolling<any[]>(`${API_BASE_URL}/api/assignments/`, 15000, !open && !confirmOpen)
-  const allAssignments = Array.isArray(polledAssignments) ? polledAssignments.map((r:any) => ({ id: String(r.assignment_id), asset_id: (r.asset ?? r.asset_id), user_id: (r.user ?? r.user_id), assigned_date: r.assigned_date, return_date: r.return_date, status: r.status })) : items
+  const allAssignments = Array.isArray(polledAssignments) ? polledAssignments.map((r:any) => ({ id: String(r.assignment_id), asset_id: (r.asset ?? r.asset_id), user_id: (r.user ?? r.user_id), assigned_date: normalizeDate(r.assigned_date ?? r.assignedDate ?? r.assigned_on), return_date: normalizeDate(r.return_date ?? r.returnDate ?? r.returned_on ?? r.returned_date), status: r.status })) : items
 
   const totalAssignments = items.length
   const activeAssignments = items.filter(i => (i.status || '').toLowerCase() === 'active').length
@@ -217,9 +263,9 @@ export default function AssignmentsPage() {
               <Input placeholder="Enter approver name" value={form.approved_by || ''} onChange={(e) => setForm({ ...form, approved_by: e.target.value })} />
             </div>
           </div>
-          <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-4 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>Cancel</Button>
-            <Button onClick={async () => {
+            <Button variant="success" onClick={async () => {
               setServerError(null)
               setFieldErrors({})
               setIsSaving(true)
@@ -266,7 +312,7 @@ export default function AssignmentsPage() {
             <h1 className="text-3xl font-bold text-foreground">Assignments</h1>
             <p className="text-muted-foreground">Issue assets to users and track returns</p>
           </div>
-          <Button onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Assignment</Button>
+          <Button variant="success" onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Assignment</Button>
         </div>
 
         <StatsCards stats={[
@@ -300,10 +346,10 @@ export default function AssignmentsPage() {
               <TableBody>
                 {filtered.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell>{r.asset_id}</TableCell>
-                    <TableCell>{r.user_id}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.assigned_date ? String(r.assigned_date).slice(0,10) : '-'}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.return_date ? String(r.return_date).slice(0,10) : '-'}</TableCell>
+                    <TableCell className="font-medium">{assetsLookup[String(r.asset_id)] ?? String(r.asset_id)}</TableCell>
+                    <TableCell>{usersLookup[String(r.user_id)] ?? String(r.user_id)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDateCell(r.assigned_date)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDateCell(r.return_date)}</TableCell>
                       <TableCell>
                         {r.status ? (
                           <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(r.status)}`}>

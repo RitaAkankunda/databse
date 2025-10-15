@@ -113,7 +113,7 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 							<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
 							<Input className="pl-10" placeholder="Search categories" value={search} onChange={(e) => { setSearch(e.target.value) }} />
 						</div>
-						<Button onClick={() => { setSelectedCategory(null); setIsDialogOpen(true) }} className="gap-2"><Plus className="h-4 w-4"/>Add Category</Button>
+						<Button variant="success" onClick={() => { setSelectedCategory(null); setIsDialogOpen(true) }} className="gap-2"><Plus className="h-4 w-4"/>Add Category</Button>
 					</div>
 				</div>
 				{/* Stats cards */}

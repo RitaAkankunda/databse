@@ -32,7 +32,7 @@ export default function LandingPage() {
             <p>Use the Login button below to go to the sign in form.</p>
           </div>
           <div className="mt-6 flex items-center justify-center">
-            <Button asChild className="px-6">
+            <Button asChild variant="success" className="px-6">
               <Link href="/login" prefetch>
                 Login
               </Link>

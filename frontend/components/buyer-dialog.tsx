@@ -15,34 +15,33 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
-interface SupplierDialogProps {
+interface BuyerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  supplier?: any
+  buyer?: any
   onSave?: (payload: any) => Promise<void>
   onUpdate?: (id: any, payload: any) => Promise<void>
 }
 
-export function SupplierDialog({ open, onOpenChange, supplier, onSave, onUpdate }: SupplierDialogProps) {
-  const isEdit = !!supplier
+export function BuyerDialog({ open, onOpenChange, buyer, onSave, onUpdate }: BuyerDialogProps) {
+  const isEdit = !!buyer
   const [serverError, setServerError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string,string[]>>({})
   const nameRef = useRef<HTMLInputElement | null>(null)
 
   const handleSubmit = async () => {
     const name = (document.getElementById('name') as HTMLInputElement).value
-    const contactPerson = (document.getElementById('contactPerson') as HTMLInputElement).value
-    const email = (document.getElementById('email') as HTMLInputElement).value
     const phone = (document.getElementById('phone') as HTMLInputElement).value
+    const email = (document.getElementById('email') as HTMLInputElement).value
     const address = (document.getElementById('address') as HTMLTextAreaElement).value
-    const website = (document.getElementById('website') as HTMLInputElement).value
+    const tin = (document.getElementById('tin') as HTMLInputElement).value
 
-    const payload = { name, contactPerson, email, phone, address, website }
+    const payload = { name, phone, email, address, tin }
     try {
       setServerError(null)
       setFieldErrors({})
-      if (isEdit && supplier && (supplier.supplier_id || supplier.supplier_id_num)) {
-        const id = supplier.supplier_id ?? supplier.supplier_id_num
+      if (isEdit && buyer && (buyer.buyer_id || buyer.buyer_id_num)) {
+        const id = buyer.buyer_id ?? buyer.buyer_id_num
         if (onUpdate) await onUpdate(id, payload)
       } else {
         if (onSave) await onSave(payload)
@@ -65,49 +64,44 @@ export function SupplierDialog({ open, onOpenChange, supplier, onSave, onUpdate 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Supplier" : "Add New Supplier"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Buyer" : "Add New Buyer"}</DialogTitle>
           <DialogDescription>
-            {isEdit ? "Update the supplier information below." : "Fill in the details to add a new supplier."}
+            {isEdit ? "Update the buyer information below." : "Fill in the details to add a new buyer."}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Supplier Name</Label>
-              <Input id="name" placeholder="Dell Inc." defaultValue={supplier?.name} />
+              <Label htmlFor="name">Buyer Name</Label>
+              <Input id="name" placeholder="Buyer Inc." defaultValue={buyer?.name} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contactPerson">Contact Person</Label>
-              <Input id="contactPerson" placeholder="John Doe" defaultValue={supplier?.contactPerson} />
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" placeholder="+1-555-0100" defaultValue={buyer?.phone} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="contact@supplier.com" defaultValue={supplier?.email} />
+              <Input id="email" type="email" placeholder="contact@buyer.com" defaultValue={buyer?.email} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" placeholder="+1-555-0100" defaultValue={supplier?.phone} />
+              <Label htmlFor="tin">TIN</Label>
+              <Input id="tin" placeholder="TIN123" defaultValue={buyer?.tin} />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="address">Address</Label>
-            <Textarea id="address" placeholder="Enter full address..." defaultValue={supplier?.address} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="website">Website</Label>
-            <Input id="website" placeholder="www.supplier.com" defaultValue={supplier?.website} />
+            <Textarea id="address" placeholder="Enter full address..." defaultValue={buyer?.address} />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button variant="success" onClick={handleSubmit}>{isEdit ? "Update Supplier" : "Add Supplier"}</Button>
+          <Button variant="success" onClick={handleSubmit}>{isEdit ? "Update Buyer" : "Add Buyer"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

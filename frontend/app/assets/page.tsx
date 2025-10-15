@@ -13,11 +13,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
-import { AssetDialog } from "@/components/asset-dialog";
 import { useNotificationActions } from "@/components/notification-system";
 import StatsCards from "@/components/stats-cards"
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { AssetDialog } from "@/components/asset-dialog";
 import usePolling from "@/lib/usePolling"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 type ApiAsset = {
@@ -45,6 +45,19 @@ export default function AssetsPage() {
   const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([])
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [assetToDelete, setAssetToDelete] = useState<any | null>(null)
+  const [assignedMap, setAssignedMap] = useState<Record<string,string>>({})
+  const [assignedMapReady, setAssignedMapReady] = useState(false)
+
+  // Helper to map a user id (string or number) to a display name using
+  // the most recently polled users. Falls back to null when unknown.
+  const userNameFromId = (id?: string | number | null) => {
+    if (!id) return null
+    const sid = String(id)
+    const users = Array.isArray(polledUsers) ? polledUsers : []
+    const u = users.find((x:any) => String(x.user_id ?? x.id ?? x.pk ?? '') === sid)
+    if (u) return u.name ?? u.full_name ?? u.username ?? String(u.user_id ?? u.id ?? '')
+    return null
+  }
 
   // Poll assets for live updates
   const { data: polledAssets } = usePolling<any[]>(`${API_BASE_URL}/api/assets/`, 15000, !isDialogOpen && !deleteConfirmOpen)
@@ -72,9 +85,66 @@ export default function AssetsPage() {
   const { data: polledCategories } = usePolling<any[]>(`${API_BASE_URL}/api/categories/`, 60000, !isDialogOpen && !deleteConfirmOpen)
   const { data: polledLocations } = usePolling<any[]>(`${API_BASE_URL}/api/locations/`, 60000, !isDialogOpen && !deleteConfirmOpen)
   const { data: polledSuppliers } = usePolling<any[]>(`${API_BASE_URL}/api/suppliers/`, 60000, !isDialogOpen && !deleteConfirmOpen)
+  // Poll assignments and users so we can show current assignee in the Assets table
+  const { data: polledAssignments } = usePolling<any[]>(`${API_BASE_URL}/api/assignments/`, 15000, !isDialogOpen && !deleteConfirmOpen)
+  const { data: polledUsers } = usePolling<any[]>(`${API_BASE_URL}/api/users/`, 60000, !isDialogOpen && !deleteConfirmOpen)
   useEffect(() => { if (Array.isArray(polledCategories)) setCategories(polledCategories.map((x:any) => ({ id: x.category_id, name: x.category_name }))) }, [polledCategories])
   useEffect(() => { if (Array.isArray(polledLocations)) setLocations(polledLocations.map((x:any) => ({ id: x.location_id, name: x.building || x.geographical_location || `Loc ${x.location_id}` }))) }, [polledLocations])
   useEffect(() => { if (Array.isArray(polledSuppliers)) setSuppliers(polledSuppliers.map((x:any) => ({ id: x.supplier_id, name: x.name }))) }, [polledSuppliers])
+
+  // Build a map assetId -> current assignee name (choose latest non-returned assignment)
+  useEffect(() => {
+    setAssignedMapReady(false)
+    try {
+      const assignments = Array.isArray(polledAssignments) ? polledAssignments : []
+      const users = Array.isArray(polledUsers) ? polledUsers : []
+      const userMap: Record<string,string> = {}
+      users.forEach((u:any) => {
+        const uid = String(u.user_id ?? u.id ?? (typeof u === 'object' && (u.pk ?? u.pk) ? u.pk : ''))
+        userMap[uid] = u.name ?? u.full_name ?? u.username ?? (`User ${uid}`)
+      })
+
+      const normalizeAssetId = (a: any) => {
+        if (!a) return ''
+        if (typeof a === 'string' || typeof a === 'number') return String(a)
+        if (typeof a === 'object') return String(a.asset_id ?? a.id ?? a.pk ?? '')
+        return ''
+      }
+      const normalizeUserId = (u: any) => {
+        if (!u) return ''
+        if (typeof u === 'string' || typeof u === 'number') return String(u)
+        if (typeof u === 'object') return String(u.user_id ?? u.id ?? u.pk ?? '')
+        return ''
+      }
+
+      const byAsset: Record<string, any[]> = {}
+      assignments.forEach((a:any) => {
+        const aid = normalizeAssetId(a.asset ?? a.asset_id ?? a)
+        if (!aid) return
+        byAsset[aid] = byAsset[aid] || []
+        byAsset[aid].push(a)
+      })
+
+      const map: Record<string,string> = {}
+      Object.entries(byAsset).forEach(([assetId, arr]) => {
+        // prefer assignments not marked 'returned' and pick latest by assigned_date
+        const candidates = arr.filter((it:any) => String((it.status||'').toLowerCase()) !== 'returned')
+        const pick = (candidates.length ? candidates : arr).sort((x:any,y:any) => {
+          const tx = x.assigned_date ? new Date(x.assigned_date).getTime() : 0
+          const ty = y.assigned_date ? new Date(y.assigned_date).getTime() : 0
+          return ty - tx
+        })[0]
+        if (pick) {
+          const uid = normalizeUserId(pick.user ?? pick.user_id ?? pick.user_id ?? pick.user)
+          map[assetId] = userMap[uid] ?? (`User ${uid}`)
+        }
+      })
+      setAssignedMap(map)
+      // dev helper: briefly log the map so you can inspect it in the console
+      try { console.debug('assignedMap', map) } catch {}
+      setAssignedMapReady(true)
+    } catch (e) { console.error(e); setAssignedMapReady(true) }
+  }, [polledAssignments, polledUsers])
 
   const filteredAssets = assets.filter((asset) => {
     const q = searchQuery.toLowerCase();
@@ -198,6 +268,9 @@ export default function AssetsPage() {
             supplier_id: detail.supplierId,
             purchase_date: toIsoDate(detail.purchaseDate),
             warranty_expiry: toIsoDate(detail.warrantyExpiry),
+            // accept optional assignedTo id from dialog (frontend will
+            // send `assignedTo` as user id string when the select is used)
+            assigned_to: detail.assignedTo ?? null,
           })
         }).then(async (res) => {
           if (!res.ok) {
@@ -214,6 +287,33 @@ export default function AssetsPage() {
             return
           }
           const created: ApiAsset = await res.json()
+          // If the dialog supplied an assignedTo id, create an Assignment
+          // linking the newly created asset to that user. This is optimistic
+          // and non-transactional; backend nested-create would be better but
+          // requires serializer changes server-side.
+          if (detail.assignedTo) {
+            try {
+              const payload = {
+                asset: created.asset_id,
+                user: Number(detail.assignedTo),
+                assigned_date: new Date().toISOString().slice(0,10),
+                status: 'Active'
+              }
+              const ares = await fetch(`${API_BASE_URL}/api/assignments/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+              if (!ares.ok) {
+                // ignore assignment failures but log for debugging
+                let atxt = ''
+                try { const j = await ares.json(); atxt = JSON.stringify(j) } catch { atxt = await ares.text().catch(()=>'') }
+                console.warn('Assignment create failed', ares.status, atxt)
+              } else {
+                // injection: keep assets list in sync by setting assignedUser
+                const asum = await ares.json()
+                setAssets(prev => prev.map(a => a.id === String(created.asset_id) ? ({ ...a, assignedUser: (asum.user_name || asum.user || String(detail.assigned || detail.user || detail.assignedTo || detail.user_id || detail.user)) }) : a))
+              }
+            } catch (err) {
+              console.error('Failed to create assignment after asset create', err)
+            }
+          }
           setAssets(prev => [...prev, {
             id: String(created.asset_id),
             name: created.asset_name,
@@ -222,7 +322,7 @@ export default function AssetsPage() {
             purchasePrice: created.purchase_cost ?? 0,
             currentValue: created.purchase_cost ?? 0,
             classification: '-',
-            assignedUser: '-',
+            assignedUser: detail.assignedTo ? (userNameFromId(detail.assignedTo) || '-') : '-',
           }])
           setIsDialogOpen(false)
           setSelectedAsset(null)
@@ -246,7 +346,7 @@ export default function AssetsPage() {
               Manage and track all your assets
             </p>
           </div>
-          <Button onClick={handleAdd} className="gap-2">
+          <Button variant="success" onClick={handleAdd} className="gap-2">
             <Plus className="h-4 w-4" />
             Add Asset
           </Button>
@@ -284,7 +384,6 @@ export default function AssetsPage() {
                   <TableHead>Purchase Date</TableHead>
                   <TableHead>Warranty Expiry</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Assigned To</TableHead>
                   <TableHead>Purchase Price</TableHead>
                   <TableHead>Current Value</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -319,7 +418,6 @@ export default function AssetsPage() {
                           {asset.status}
                         </span>
                       </TableCell>
-                      <TableCell>{asset.assignedUser}</TableCell>
                       <TableCell>
                         UGX {asset.purchasePrice.toLocaleString()}
                       </TableCell>

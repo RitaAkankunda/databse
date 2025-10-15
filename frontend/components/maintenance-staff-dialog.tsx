@@ -67,7 +67,7 @@ export function MaintenanceStaffDialog({ open, onOpenChange, staff, onSave, onUp
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit">{isEdit ? "Update" : "Add"}</Button>
+            <Button type="submit" variant="success">{isEdit ? "Update" : "Add"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

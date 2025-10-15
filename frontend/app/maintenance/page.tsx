@@ -26,6 +26,8 @@ function generateId(): string {
 }
 
 export default function MaintenancePage() {
+  // New maintenance record shape aligns with backend table:
+  // { id, asset_id, maintenance_date, description, cost, staff_id, performed_by, createdAt, updatedAt }
   const [maintenanceRecords, setMaintenanceRecords] = useState<Maintenance[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -33,7 +35,6 @@ export default function MaintenancePage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [maintenanceToDelete, setMaintenanceToDelete] = useState<Maintenance | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const [priorityFilter, setPriorityFilter] = useState<string>("All");
   const { showSuccess, showError } = useNotificationActions();
 
   // Load maintenance records from localStorage on component mount
@@ -41,7 +42,33 @@ export default function MaintenancePage() {
     const savedMaintenance = localStorage.getItem(STORAGE_KEY);
     if (savedMaintenance) {
       try {
-        setMaintenanceRecords(JSON.parse(savedMaintenance));
+        const raw = JSON.parse(savedMaintenance)
+        // Normalize older/demo shapes into the canonical maintenance shape
+        const normalized = Array.isArray(raw) ? raw.map((r:any) => {
+          const asset_id = r.assetId ?? r.asset_id ?? (r.assetId ? String(r.assetId) : (r.assetId || ''))
+          const maintenance_date = r.maintenance_date ?? r.scheduledDate ?? r.maintenanceDate ?? r.completedDate ?? r.maintenance_date ?? ''
+          const description = r.description ?? r.notes ?? ''
+          const cost = typeof r.cost === 'number' ? r.cost : (parseFloat(r.cost) || 0)
+          const staff_id = r.staff_id ?? r.staffId ?? ''
+          const performed_by = r.performedBy ?? r.performed_by ?? ''
+          return {
+            id: r.id ?? `m_${Math.random().toString(36).slice(2,9)}`,
+            asset_id: asset_id ? String(asset_id) : '',
+            maintenance_date: maintenance_date ? String(maintenance_date).slice(0,10) : '',
+            description,
+            cost,
+            staff_id: staff_id ? String(staff_id) : '',
+            performed_by,
+            createdAt: r.createdAt ?? new Date().toISOString(),
+            updatedAt: r.updatedAt ?? new Date().toISOString(),
+          }
+        }) : []
+        // Persist the cleaned normalized array back to localStorage so any
+        // legacy `priority` values are removed immediately for all clients.
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized))
+        } catch (e) { /* ignore */ }
+        setMaintenanceRecords(normalized)
       } catch (error) {
         console.error("Error loading maintenance records from localStorage:", error);
       }
@@ -50,21 +77,31 @@ export default function MaintenancePage() {
 
   // Save maintenance records to localStorage whenever maintenance state changes
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(maintenanceRecords));
+    // Strip legacy fields (like `priority`) before persisting so the
+    // stored migration shape remains canonical and smaller.
+    try {
+      const cleaned = maintenanceRecords.map((r:any) => {
+        // strip known legacy priority keys (various casings/forms)
+        const { Priority, priority, priorityLevel, ...rest } = r as any
+        delete (rest as any).priority
+        delete (rest as any).priorityLevel
+        return rest
+      })
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned))
+    } catch (e) {
+      // fallback: write raw if something unexpected happens
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(maintenanceRecords)) } catch { /* ignore */ }
+    }
   }, [maintenanceRecords]);
 
-  const filteredMaintenance = maintenanceRecords.filter((maintenance) => {
-    const matchesSearch = 
-      maintenance.asset.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      maintenance.assetId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      maintenance.maintenanceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      maintenance.performedBy.toLowerCase().includes(searchQuery.toLowerCase())
-    
-    const matchesStatus = statusFilter === "All" || maintenance.status === statusFilter
-    const matchesPriority = priorityFilter === "All" || maintenance.priority === priorityFilter
-    
-    return matchesSearch && matchesStatus && matchesPriority
-  });
+  const filteredMaintenance = maintenanceRecords.filter((m) => {
+    const q = searchQuery.toLowerCase()
+    return (
+      String(m.asset_id || '').toLowerCase().includes(q) ||
+      String(m.description || '').toLowerCase().includes(q) ||
+      String(m.performed_by || '').toLowerCase().includes(q)
+    )
+  })
 
   const handleAddMaintenance = (maintenanceData: Omit<Maintenance, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newMaintenance: Maintenance = {
@@ -74,7 +111,7 @@ export default function MaintenancePage() {
       updatedAt: new Date().toISOString(),
     };
     setMaintenanceRecords(prev => [...prev, newMaintenance]);
-    showSuccess("Maintenance Scheduled", `Maintenance for ${maintenanceData.asset} has been successfully scheduled.`);
+    showSuccess("Maintenance Scheduled", `Maintenance for ${maintenanceData.asset_id} has been successfully scheduled.`);
   };
 
   const handleUpdateMaintenance = (id: string, maintenanceData: Omit<Maintenance, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -83,7 +120,7 @@ export default function MaintenancePage() {
         ? { ...maintenance, ...maintenanceData, updatedAt: new Date().toISOString() }
         : maintenance
     ));
-    showSuccess("Maintenance Updated", `Maintenance record for ${maintenanceData.asset} has been successfully updated.`);
+    showSuccess("Maintenance Updated", `Maintenance record for ${maintenanceData.asset_id} has been successfully updated.`);
   };
 
   const handleDeleteMaintenance = (maintenance: Maintenance) => {
@@ -109,43 +146,18 @@ export default function MaintenancePage() {
     setIsDialogOpen(true);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Completed":
-        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400";
-      case "Scheduled":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400";
-      case "In Progress":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400";
-      case "Cancelled":
-        return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400";
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "Critical":
-        return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400";
-      case "High":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400";
-      case "Medium":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400";
-      case "Low":
-        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400";
-    }
-  };
-
-  // Calculate statistics
-  const scheduledCount = maintenanceRecords.filter(m => m.status === "Scheduled").length;
-  const completedCount = maintenanceRecords.filter(m => m.status === "Completed").length;
-  const totalCost = maintenanceRecords.reduce((sum, m) => sum + m.cost, 0);
-  const overdueCount = maintenanceRecords.filter(m => 
-    m.status === "Scheduled" && new Date(m.scheduledDate) < new Date()
-  ).length;
+  // Calculate simple statistics based on canonical fields
+  const totalCount = maintenanceRecords.length
+  const totalCost = maintenanceRecords.reduce((sum, m) => sum + Number(m.cost || 0), 0)
+  const scheduledCount = maintenanceRecords.filter(m => (m.status ?? '').toLowerCase() === 'scheduled' || !m.status).length
+  const completedCount = maintenanceRecords.filter(m => (m.status ?? '').toLowerCase() === 'completed').length
+  const overdueCount = maintenanceRecords.filter(m => {
+    try {
+      if (!m.maintenance_date) return false
+      const d = new Date(m.maintenance_date)
+      return d < new Date() && ((m.status || '').toLowerCase() !== 'completed')
+    } catch { return false }
+  }).length
 
   return (
     <div className="flex">
@@ -160,7 +172,7 @@ export default function MaintenancePage() {
               Schedule and track asset maintenance activities
             </p>
           </div>
-          <Button onClick={handleAddNewMaintenance} className="gap-2">
+          <Button variant="success" onClick={handleAddNewMaintenance} className="gap-2">
             <Plus className="h-4 w-4" />
             Schedule Maintenance
           </Button>
@@ -248,17 +260,7 @@ export default function MaintenancePage() {
                   <option value="Completed">Completed</option>
                   <option value="Cancelled">Cancelled</option>
                 </select>
-                <select
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value)}
-                  className="px-3 py-2 border border-input bg-background rounded-md text-sm"
-                >
-                  <option value="All">All Priority</option>
-                  <option value="Critical">Critical</option>
-                  <option value="High">High</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Low">Low</option>
-                </select>
+                {/* priority filter removed per design request */}
               </div>
             </div>
           </CardHeader>
@@ -266,14 +268,12 @@ export default function MaintenancePage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Asset</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Scheduled Date</TableHead>
-                  <TableHead>Completed Date</TableHead>
-                  <TableHead>Performed By</TableHead>
+                  <TableHead>Asset ID</TableHead>
+                  <TableHead>Maintenance Date</TableHead>
+                  <TableHead>Description</TableHead>
                   <TableHead>Cost</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Staff ID</TableHead>
+                  <TableHead>Performed By</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -291,39 +291,20 @@ export default function MaintenancePage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredMaintenance.map((maintenance) => (
-                    <TableRow key={maintenance.id}>
-                      <TableCell className="font-medium">
-                        {maintenance.asset}
-                        <div className="text-xs text-muted-foreground font-mono">
-                          {maintenance.assetId}
-                        </div>
-                      </TableCell>
-                      <TableCell>{maintenance.maintenanceType}</TableCell>
-                      <TableCell>
-                        <span className={`rounded-full px-2 py-1 text-xs font-medium ${getPriorityColor(maintenance.priority)}`}>
-                          {maintenance.priority}
-                        </span>
-                      </TableCell>
-                      <TableCell>{new Date(maintenance.scheduledDate).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {maintenance.completedDate ? new Date(maintenance.completedDate).toLocaleDateString() : "-"}
-                      </TableCell>
-                      <TableCell>{maintenance.performedBy || "-"}</TableCell>
-                      <TableCell>
-                        UGX {maintenance.cost.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(maintenance.status)}`}>
-                          {maintenance.status}
-                        </span>
-                      </TableCell>
+                  filteredMaintenance.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell className="font-medium">{m.asset_id}</TableCell>
+                      <TableCell>{m.maintenance_date ? String(m.maintenance_date).slice(0,10) : '-'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{m.description || '-'}</TableCell>
+                      <TableCell>UGX {Number(m.cost || 0).toLocaleString()}</TableCell>
+                      <TableCell>{m.staff_id || '-'}</TableCell>
+                      <TableCell>{m.performed_by || '-'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleEditMaintenance(maintenance)}
+                            onClick={() => handleEditMaintenance(m)}
                             title="Edit maintenance record"
                           >
                             <Edit className="h-4 w-4" />
@@ -331,7 +312,7 @@ export default function MaintenancePage() {
                           <Button 
                             variant="ghost" 
                             size="icon"
-                            onClick={() => handleDeleteMaintenance(maintenance)}
+                            onClick={() => handleDeleteMaintenance(m)}
                             title="Delete maintenance record"
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
