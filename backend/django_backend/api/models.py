@@ -19,6 +19,12 @@ class User(models.Model):
     phone = models.CharField(max_length=50, null=True, blank=True)
     nin = models.CharField(max_length=100, null=True, blank=True)
     status = models.CharField(max_length=50, null=True, blank=True)
+    # Role: 'admin' or 'staff' — minimal RBAC for the app
+    ROLE_CHOICES = (
+        ('admin', 'Admin'),
+        ('staff', 'Staff'),
+    )
+    role = models.CharField(max_length=30, choices=ROLE_CHOICES, default='staff')
 
     def __str__(self):
         return self.name

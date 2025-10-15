@@ -19,18 +19,13 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
-import { Button } from "@/components/ui/button";
 import { 
-  TrendingUp, 
   Users, 
   Package, 
   Wrench, 
-  Plus, 
-  BarChart3, 
   Activity,
   ArrowUpRight,
   ArrowDownRight,
-  Clock
 } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -127,7 +122,7 @@ export default function DashboardPage() {
       <main className="flex-1 p-8 animate-fade-in-up">
         {/* Header Section */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between relative">
             <div>
               <h1 className="text-4xl font-bold text-foreground mb-2">
                      Welcome back, {user?.full_name || 'User'}! 👋
@@ -136,11 +131,11 @@ export default function DashboardPage() {
                 Here's what's happening with your assets today
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                Last updated: {new Date().toLocaleTimeString()}
-              </div>
+            {/* Right-side header info removed per user request */}
+
+            {/* Decorative hero behind header on the right */}
+            <div className="absolute right-0 top-0 h-32 w-72 opacity-80 pointer-events-none -translate-y-4 translate-x-6 hidden md:block">
+              <img src="/dash-hero.svg" alt="decor" className="h-full w-full object-cover" />
             </div>
           </div>
         </div>
@@ -224,15 +219,90 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Recent Assets removed per user request */}
+  {/* Main Content Grid */}
+  <div className="grid gap-6 lg:grid-cols-2">
+          {/* Left column: Recent items and summaries */}
+          <div className="space-y-6">
+            <Card className="card-modern">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Recent Assets</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recentAssets && recentAssets.length > 0 ? (
+                  <ul className="space-y-3">
+                    {recentAssets.slice(0,6).map((a:any) => (
+                      <li key={a.asset_id || a.id || a.asset_name} className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium">{a.asset_name || a.name || 'Untitled'}</div>
+                          <div className="text-xs text-muted-foreground">{a.category_name || (a.category && (a.category.category_name || a.category)) || (a.location || '')}</div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">{(a.status || 'Unknown')}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No recent assets</div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="card-modern">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Recent Maintenance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {Array.isArray(polledMaintenance) && polledMaintenance.length > 0 ? (
+                  <ul className="space-y-3">
+                    {polledMaintenance.slice(-6).reverse().map((m:any) => (
+                      <li key={m.maintenance_id || m.id || `${m.asset}_${m.maintenance_id}`} className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium">{m.description ? String(m.description).slice(0,60) : (m.asset_name || m.asset || 'Maintenance')}</div>
+                          <div className="text-xs text-muted-foreground">{m.maintenance_date || m.created_at || ''} • {m.staff || m.performed_by || ''}</div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">{m.status || 'Open'}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No maintenance records</div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="card-modern">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Top Category</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {Array.isArray(assetsData) && assetsData.length > 0 ? (
+                  <div>
+                    {(() => {
+                      const top = assetsData.slice().sort((a:any,b:any)=> (b.count||0)-(a.count||0))[0];
+                      return (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-medium">{top?.category || top?.name || '—'}</div>
+                            <div className="text-xs text-muted-foreground">{top?.count || 0} assets</div>
+                          </div>
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Package className="h-5 w-5 text-primary" />
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No category data</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Right column: Reports and debug panels (Quick Actions & System Health removed) */}
-          <div className="space-y-6">
+          <div className="flex flex-col md:flex-row gap-6">
             {/* Reports debug card removed per user request */}
             {/* Reports: Assets by Category (Pie) */}
-            <Card className="card-modern">
+            <Card className="card-modern w-full md:w-1/2">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold">Assets by Category</CardTitle>
               </CardHeader>
@@ -267,7 +337,7 @@ export default function DashboardPage() {
             </Card>
 
             {/* Reports: Valuation histogram (Bar) */}
-            <Card className="card-modern">
+            <Card className="card-modern w-full md:w-1/2">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold">Valuation Histogram</CardTitle>
               </CardHeader>

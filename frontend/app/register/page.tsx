@@ -22,7 +22,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [department, setDepartment] = useState("");
-  const [role, setRole] = useState("");
+  const [role, setRole] = useState("staff");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -159,12 +159,16 @@ export default function RegisterPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Input
+              <select
                 id="role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                placeholder="Enter your role (e.g. Admin, Manager, Staff)"
-              />
+                className="w-full rounded-md border border-input bg-transparent px-3 py-2"
+              >
+                <option value="staff">Staff</option>
+                <option value="admin">Admin</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">Default is <strong>Staff</strong>. Admins have full access.</p>
             </div>
 
             {error && (
@@ -173,7 +177,7 @@ export default function RegisterPage() {
               </p>
             )}
 
-            <Button type="submit" disabled={submitting} className="w-full">
+            <Button type="submit" disabled={submitting} variant="success" className="w-full">
               {submitting ? "Creating account..." : "Register"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

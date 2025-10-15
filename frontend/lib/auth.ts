@@ -9,7 +9,7 @@ export type UserRecord = {
   email: string;
   password: string; // hashed in real apps; plain for demo
   department: string;
-  role: string;
+  role: 'admin' | 'staff';
 };
 
 const USERS_KEY = "ams.users";
@@ -69,7 +69,10 @@ export function registerUser(
   if (existsByEmail) return { ok: false, error: "Email already registered" };
   if (existsByFullName)
     return { ok: false, error: "Full name already registered" };
-  const user: UserRecord = { id: generateId(), ...newUser };
+  // Ensure role is valid and default to 'staff'
+  const allowedRoles = new Set(['admin', 'staff']);
+  const role = newUser.role && allowedRoles.has(newUser.role) ? newUser.role : 'staff';
+  const user: UserRecord = { id: generateId(), ...newUser, role } as UserRecord;
   users.push(user);
   writeUsers(users);
   // debug: newly registered user

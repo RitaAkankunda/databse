@@ -16,6 +16,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     const user = getCurrentUser();
     if (!user) {
       router.replace("/");
+      return;
+    }
+
+    // Deny staff access to admin-only routes
+    const adminOnly = new Set(["/users", "/disposal"]);
+    if (user.role !== 'admin' && adminOnly.has(pathname)) {
+      router.replace('/dashboard');
     }
   }, [pathname, router]);
 

@@ -12,8 +12,11 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    role = serializers.ChoiceField(choices=[('admin','Admin'),('staff','Staff')], required=False, default='staff')
+
     class Meta:
         model = User
+        # explicitly include role so it's handled predictably
         fields = '__all__'
 
 

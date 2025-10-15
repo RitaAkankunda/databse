@@ -53,17 +53,31 @@ export function SidebarNav() {
   const setLive = useSetLive()
 
 
+  // Filter nav items by role: hide admin-only items for staff users
+  const allowedNav = (() => {
+    if (!user) return navItems.filter((i) => ["/login", "/register", "/"].includes(i.href));
+    if (user.role === 'admin') return navItems;
+    // staff: hide Users and Disposal pages (admin-only)
+    const adminOnly = new Set(['/users', '/disposal']);
+    return navItems.filter((i) => !adminOnly.has(i.href));
+  })();
+
   return (
     <div className="flex h-screen w-64 flex-col border-r border-border bg-white/80 backdrop-blur-sm shadow-lg">
-      <div className="flex h-20 items-center border-b border-border px-6">
-        <div className="flex items-center justify-between w-full">
+      <div className="flex h-24 items-center border-b border-border px-4">
+        <div className="flex items-center justify-between w-full gap-3">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg">
+            <div className="h-12 w-12 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg">
               <Package className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Asset Manager</h1>
-              <p className="text-xs text-muted-foreground">Professional System</p>
+              <h1 className="text-lg font-bold text-foreground">Asset Manager</h1>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground">{user?.full_name || 'Guest'}</p>
+                {user?.role && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{String(user.role).toUpperCase()}</span>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -71,16 +85,27 @@ export function SidebarNav() {
             <button onClick={() => setLive(!isLive)} className={`h-6 w-10 rounded-full p-0.5 transition-all duration-300 ${isLive ? 'bg-green-500 shadow-lg' : 'bg-gray-300'}`} aria-pressed={isLive} title="Toggle Live Polling">
               <div className={`h-5 w-5 rounded-full bg-white shadow transform transition-all duration-300 ${isLive ? 'translate-x-4' : 'translate-x-0'}`}></div>
             </button>
+            <button
+              aria-label="Toggle theme"
+              title="Toggle theme"
+              onClick={() => {
+                if (document.documentElement.classList.contains('dark')) {
+                  document.documentElement.classList.remove('dark');
+                  localStorage.setItem('theme', 'light');
+                } else {
+                  document.documentElement.classList.add('dark');
+                  localStorage.setItem('theme', 'dark');
+                }
+              }}
+              className="h-8 w-8 rounded-md flex items-center justify-center bg-muted/60 hover:bg-muted/80"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+            </button>
           </div>
         </div>
       </div>
       <nav className="flex-1 space-y-2 p-4">
-        {(user
-          ? navItems
-          : navItems.filter((i) =>
-              ["/login", "/register", "/"].includes(i.href)
-            )
-        ).map((item) => {
+        {allowedNav.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
           return (
