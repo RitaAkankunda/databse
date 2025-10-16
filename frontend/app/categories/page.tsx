@@ -5,6 +5,7 @@ import { SidebarNav } from "@/components/sidebar-nav"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Plus, Search, Edit, Trash2 } from "lucide-react"
 import CategoryDialog, { Category as CategoryType } from "@/components/category-dialog"
@@ -18,7 +19,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8
 type Category = { category_id: number; category_name: string; description?: string | null; created?: string | null }
 
 export default function CategoriesPage() {
-		const [categories, setCategories] = useState<CategoryType[]>([])
+		const [categories, setCategories] = useState<CategoryType[]>([{ id: String(-1), category_name: 'Others', description: 'Uncategorized / Other' } as CategoryType])
 	const [search, setSearch] = useState("")
 	const [isDialogOpen, setIsDialogOpen] = useState(false)
 		const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null)
@@ -32,7 +33,21 @@ export default function CategoriesPage() {
 const { data: polledCategories } = usePolling<any[]>(`${API_BASE_URL}/api/categories/`, 30000, !isDialogOpen && !deleteConfirmOpen)
 const { data: polledAssets } = usePolling<any[]>(`${API_BASE_URL}/api/assets/`, 30000, !isDialogOpen && !deleteConfirmOpen)
 
-useEffect(() => { if (Array.isArray(polledCategories)) setCategories(polledCategories.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '', created: d.created_at ?? d.created ?? null }))) }, [polledCategories])
+// Ensure there's always an "Others" category in the UI so users can assign uncategorized assets
+function ensureOthersCategory(list: any[]) {
+	if (!Array.isArray(list)) return list
+	const hasOthers = list.some((c: any) => (c.category_name || c.name || '').toLowerCase() === 'others')
+	if (hasOthers) return list
+	// prepend a synthetic Others entry using the same shape the backend returns so it appears at the top
+	return [{ category_id: -1, category_name: 'Others', description: 'Uncategorized / Other', created_at: null }, ...list]
+}
+
+useEffect(() => {
+	if (Array.isArray(polledCategories)) {
+		const withOthers = ensureOthersCategory(polledCategories)
+		setCategories(withOthers.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '', created: d.created_at ?? d.created ?? null })))
+	}
+}, [polledCategories])
 
 const categoriesList = Array.isArray(polledCategories) ? polledCategories : categories
 const totalCategories = (categoriesList || []).length
@@ -53,7 +68,8 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 					const res = await fetch(`${API_BASE_URL}/api/categories/`)
 					if (!res.ok) throw new Error('Failed to load categories')
 							const data: Array<{ category_id: number; category_name: string; description?: string | null; created_at?: string | null; created?: string | null }> = await res.json()
-							const normalized = data.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '', created: d.created_at ?? d.created ?? null }))
+							const withOthers = ensureOthersCategory(data)
+							const normalized = withOthers.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '', created: d.created_at ?? d.created ?? null }))
 					setCategories(normalized)
 				} catch (e) {
 					console.error(e)
@@ -63,12 +79,19 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 	}, [])
 
 		const filtered = categories.filter(c => [String(c.id), c.category_name, c.description || ''].join(' ').toLowerCase().includes(search.toLowerCase()))
-	const pageItems = filtered
+	// Keep a reference to the synthetic Others (category_id -1) and ensure it's included at the top of the results
+	const others = categories.find(c => String(c.id) === String(-1) || (c.category_name || '').toLowerCase() === 'others')
+		const pageItems = others ? [others, ...filtered.filter(c => String(c.id) !== String(others.id))] : filtered
 
-	async function handleSave(data: { category_name: string; description?: string; created_at?: string }) {
+		// inline dropdown filter state
+		const [dropdownFilter, setDropdownFilter] = useState('')
+		const dropdownFiltered = dropdownFilter
+			? pageItems.filter(c => [String(c.id), c.category_name, c.description || ''].join(' ').toLowerCase().includes(dropdownFilter.toLowerCase()) || (c.category_name || '').toLowerCase() === 'others')
+			: pageItems
+
+	async function handleSave(data: { category_name: string; description?: string }) {
 		try {
 			const payload: any = { category_name: data.category_name, description: data.description };
-			if (data.created_at) payload.created_at = data.created_at;
 			const res = await fetch(`${API_BASE_URL}/api/categories/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
 			if (!res.ok) throw new Error('Create failed')
 			const created = await res.json()
@@ -79,10 +102,9 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 		} catch (e:any) { console.error(e); showError('Create Failed', e?.message || 'Unable to create category') }
 	}
 
-	async function handleUpdate(id: string, data: { category_name: string; description?: string; created_at?: string }) {
+	async function handleUpdate(id: string, data: { category_name: string; description?: string }) {
 		try {
 			const payload: any = { category_name: data.category_name, description: data.description };
-			if (data.created_at) payload.created_at = data.created_at;
 			const res = await fetch(`${API_BASE_URL}/api/categories/${id}/`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
 			if (!res.ok) throw new Error('Update failed')
 			const updated = await res.json()
@@ -131,36 +153,46 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 				<Card>
 					<CardHeader />
 					<CardContent>
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Category ID</TableHead>
-										<TableHead>Category Name</TableHead>
-										<TableHead>Description</TableHead>
-										<TableHead className="text-right">Actions</TableHead>
-								</TableRow>
-							</TableHeader>
-												<TableBody>
-													{pageItems.map(c => (
-														<TableRow key={c.id}>
-															<TableCell className="font-medium">{c.id}</TableCell>
-															<TableCell>{c.category_name}</TableCell>
-								<TableCell className="text-muted-foreground">{c.description || '-'}</TableCell>
-								<TableCell className="text-right">
-																<div className="flex justify-end gap-2">
-																	<Button variant="ghost" size="icon" onClick={() => { setSelectedCategory({ id: c.id, category_name: c.category_name, description: c.description || '' }); setIsDialogOpen(true) }} title="Edit"><Edit className="h-4 w-4"/></Button>
-																	<Button variant="ghost" size="icon" onClick={() => { setCategoryToDelete({ id: c.id, category_name: c.category_name, description: c.description || '' }); setDeleteConfirmOpen(true) }} title="Delete" className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4"/></Button>
-																</div>
-															</TableCell>
-														</TableRow>
-													))}
-								{pageItems.length === 0 && (
-									<TableRow>
-										<TableCell colSpan={4} className="text-center text-muted-foreground py-8">No categories found.</TableCell>
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
+							<div className="space-y-4">
+								<div className="flex items-center gap-4">
+									<Select value={selectedCategory?.id ?? ""} onValueChange={(val) => {
+										const found = categories.find(x => x.id === val)
+										if (found) setSelectedCategory(found)
+										else setSelectedCategory(null)
+									}}>
+										<SelectTrigger className="w-80">
+											<SelectValue placeholder="Select a category..." />
+										</SelectTrigger>
+										<SelectContent>
+											<div className="p-2">
+												<Input placeholder="Filter categories..." value={dropdownFilter} onChange={(e) => setDropdownFilter(e.target.value)} className="mb-2" />
+											</div>
+											{dropdownFiltered.map(c => (
+												<SelectItem key={c.id} value={c.id}>{c.category_name}</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<div className="flex items-center gap-2">
+										<Button variant="ghost" size="sm" onClick={() => { if (selectedCategory) { setSelectedCategory({ id: selectedCategory.id, category_name: selectedCategory.category_name, description: selectedCategory.description || '' }); setIsDialogOpen(true) } }} title="Edit">Edit</Button>
+										<Button variant="ghost" size="sm" onClick={() => { if (selectedCategory) { setCategoryToDelete({ id: selectedCategory.id, category_name: selectedCategory.category_name, description: selectedCategory.description || '' }); setDeleteConfirmOpen(true) } }} className="text-red-600 hover:text-red-700 hover:bg-red-50">Delete</Button>
+									</div>
+								</div>
+								{pageItems.length === 0 && <div className="text-muted-foreground">No categories found.</div>}
+								<div className="grid gap-2">
+									{pageItems.map(c => (
+										<div key={c.id} className="flex items-center justify-between border rounded p-2">
+											<div>
+												<div className="font-medium">{c.category_name}</div>
+												<div className="text-muted-foreground text-sm">{c.description || '-'}</div>
+											</div>
+											<div className="flex items-center gap-2">
+												<Button variant="ghost" size="icon" onClick={() => { setSelectedCategory({ id: c.id, category_name: c.category_name, description: c.description || '' }); setIsDialogOpen(true) }} title="Edit"><Edit className="h-4 w-4"/></Button>
+												<Button variant="ghost" size="icon" onClick={() => { setCategoryToDelete({ id: c.id, category_name: c.category_name, description: c.description || '' }); setDeleteConfirmOpen(true) }} title="Delete" className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4"/></Button>
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
 
 						{/* pagination removed: showing full filtered list */}
 					</CardContent>

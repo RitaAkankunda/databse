@@ -31,13 +31,13 @@ interface CategoryDialogProps {
 
 export function CategoryDialog({ open, onOpenChange, category, onSave, onUpdate }: CategoryDialogProps) {
   const isEdit = !!category
-  const [formData, setFormData] = useState({ category_name: "", description: "", created_at: "" })
+  const [formData, setFormData] = useState({ category_name: "", description: "" })
 
   useEffect(() => {
     if (category) {
-      setFormData({ category_name: category.category_name || "", description: category.description || "", created_at: category.created || "" })
+      setFormData({ category_name: category.category_name || "", description: category.description || "" })
     } else {
-      setFormData({ category_name: "", description: "", created_at: "" })
+      setFormData({ category_name: "", description: "" })
     }
   }, [category, open])
 
@@ -69,13 +69,7 @@ export function CategoryDialog({ open, onOpenChange, category, onSave, onUpdate 
                 <div className="text-sm text-muted-foreground py-1">{new Date(category.created).toLocaleString()}</div>
               </div>
             )}
-            {!isEdit && (
-              <div className="space-y-2">
-                <Label htmlFor="created_at">Created at (optional)</Label>
-                <Input id="created_at" type="datetime-local" value={formData.created_at} onChange={(e) => setFormData(prev => ({ ...prev, created_at: e.target.value }))} />
-                <p className="text-xs text-muted-foreground">If provided, this value will be sent as the category's created_at timestamp.</p>
-              </div>
-            )}
+            {/* Created at input removed for Add Category (was optional). */}
             <div className="space-y-2">
               <Label htmlFor="category_name">Category Name *</Label>
               <Input id="category_name" value={formData.category_name} onChange={(e) => setFormData(prev => ({ ...prev, category_name: e.target.value }))} required />

@@ -68,6 +68,8 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const { showSuccess, showError } = useNotificationActions()
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All");
 
@@ -95,6 +97,46 @@ export default function UsersPage() {
     const matchesStatus = statusFilter === "All" || user.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) setSelectedIds(filteredUsers.map(a => a.id))
+    else setSelectedIds([])
+  }
+
+  const toggleSelectOne = (id: string, checked: boolean) => {
+    setSelectedIds(prev => checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id))
+  }
+
+  const exportSelected = () => {
+    const rows = users.filter(a => selectedIds.includes(a.id))
+    if (rows.length === 0) return
+    const headers = ['id','name','email','phone','department','position','status']
+    const csv = [headers.join(',')].concat(rows.map(r => headers.map(h => `"${String((r as any)[h] ?? '')}"`).join(','))).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `users_export_${new Date().toISOString().slice(0,10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  async function performBulkDelete() {
+    if (selectedIds.length === 0) return
+    try {
+      await Promise.all(selectedIds.map(id => fetch(`${API_BASE_URL}/api/users/${id}/`, { method: 'DELETE' })))
+      setUsers(prev => prev.filter(a => !selectedIds.includes(a.id)))
+      showSuccess('Users Deleted', `${selectedIds.length} users removed`)
+      setSelectedIds([])
+    } catch (e) {
+      console.error(e)
+      showError('Bulk Delete Failed', 'Unable to delete some users')
+    } finally {
+      setBulkDeleteOpen(false)
+    }
+  }
 
   const handleAddUser = async (userData: Omit<User, "id" | "createdAt" | "updatedAt">) => {
     try {
@@ -267,9 +309,22 @@ export default function UsersPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {selectedIds.length > 0 && (
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div className="text-sm text-foreground">{selectedIds.length} selected</div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={exportSelected}>Export</Button>
+                  <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>Delete</Button>
+                </div>
+              </div>
+            )}
+
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <input role="checkbox" type="checkbox" checked={selectedIds.length > 0 && selectedIds.length === filteredUsers.length} onChange={(e) => toggleSelectAll(e.target.checked)} className="accent-primary" />
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
@@ -293,6 +348,7 @@ export default function UsersPage() {
                 ) : (
                   filteredUsers.map((user) => (
                     <TableRow key={user.id}>
+                      <TableCell className="w-12"><input role="checkbox" type="checkbox" checked={selectedIds.includes(user.id)} onChange={(e) => toggleSelectOne(user.id, e.target.checked)} className="accent-primary" /></TableCell>
                       <TableCell className="font-medium">{user.name}</TableCell>
                       <TableCell className="text-muted-foreground">{user.email}</TableCell>
                       <TableCell className="text-muted-foreground">{formatPhone(user.phone)}</TableCell>
@@ -347,6 +403,7 @@ export default function UsersPage() {
           onConfirm={confirmDelete}
           variant="destructive"
         />
+        <ConfirmationDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen} title="Delete Users" description={`Are you sure you want to delete ${selectedIds.length} selected users? This action cannot be undone.`} confirmText="Delete" cancelText="Cancel" onConfirm={performBulkDelete} variant="destructive" />
       </main>
     </div>
   );

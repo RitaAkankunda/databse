@@ -102,6 +102,8 @@ class AssetSerializer(serializers.ModelSerializer):
     current_holder_name = serializers.CharField(read_only=True)
     current_assignment_status = serializers.CharField(read_only=True, allow_null=True)
     current_assignment_date = serializers.DateField(read_only=True, allow_null=True)
+    # Expose the related category name to make frontend rendering simpler
+    category_name = serializers.CharField(source='category.category_name', read_only=True)
 
 
 class SupplierSerializer(serializers.ModelSerializer):

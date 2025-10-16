@@ -22,6 +22,8 @@ export default function AssignmentsPage() {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<Assignment | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [assetsLookup, setAssetsLookup] = useState<Record<string,string>>({})
   const [usersLookup, setUsersLookup] = useState<Record<string,string>>({})
   const { showSuccess, showError } = useNotificationActions()
@@ -141,12 +143,58 @@ export default function AssignmentsPage() {
       showError('Delete Failed', bodyText || 'Unable to delete assignment')
       throw new Error('Delete failed')
     }
+  // refresh server-backed data and local state
+  try {
+    if (refreshAssignments) await refreshAssignments()
+  } catch (e) { /* ignore refresh errors */ }
   setItems(prev => prev.filter(x => x.id !== selected.id))
   setSelected(null)
   showSuccess('Assignment Deleted', `Assignment removed`)
   }
 
   const filtered = items.filter(i => [i.asset_id, i.user_id, i.status || '', i.description || ''].join(' ').toLowerCase().includes(search.toLowerCase()))
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) setSelectedIds(filtered.map(a => a.id))
+    else setSelectedIds([])
+  }
+
+  const toggleSelectOne = (id: string, checked: boolean) => {
+    setSelectedIds(prev => checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id))
+  }
+
+  const exportSelected = () => {
+    const rows = items.filter(a => selectedIds.includes(a.id))
+    if (rows.length === 0) return
+    const headers = ['id','asset_id','user_id','assigned_date','return_date','status']
+    const csv = [headers.join(',')].concat(rows.map(r => headers.map(h => `"${String((r as any)[h] ?? '')}"`).join(','))).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `assignments_export_${new Date().toISOString().slice(0,10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  async function performBulkDelete() {
+    if (selectedIds.length === 0) return
+    try {
+      await Promise.all(selectedIds.map(id => fetch(`${API_BASE_URL}/api/assignments/${id}/`, { method: 'DELETE' })))
+      // refresh server-backed data
+      try { if (refreshAssignments) await refreshAssignments() } catch (e) { /* ignore */ }
+      setItems(prev => prev.filter(a => !selectedIds.includes(a.id)))
+      showSuccess('Assignments Deleted', `${selectedIds.length} assignments removed`)
+      setSelectedIds([])
+    } catch (e) {
+      console.error(e)
+      showError('Bulk Delete Failed', 'Unable to delete some assignments')
+    } finally {
+      setBulkDeleteOpen(false)
+    }
+  }
 
   // Load lookup maps for assets and users so we can display names instead of raw IDs
   useEffect(() => {
@@ -172,13 +220,23 @@ export default function AssignmentsPage() {
   }, [])
 
   // Live polling of assignments so stats reflect recent changes
-  const { data: polledAssignments } = usePolling<any[]>(`${API_BASE_URL}/api/assignments/`, 15000, !open && !confirmOpen)
+  const { data: polledAssignments, refresh: refreshAssignments } = usePolling<any[]>(`${API_BASE_URL}/api/assignments/`, 15000, !open && !confirmOpen)
   const allAssignments = Array.isArray(polledAssignments) ? polledAssignments.map((r:any) => ({ id: String(r.assignment_id), asset_id: (r.asset ?? r.asset_id), user_id: (r.user ?? r.user_id), assigned_date: normalizeDate(r.assigned_date ?? r.assignedDate ?? r.assigned_on), return_date: normalizeDate(r.return_date ?? r.returnDate ?? r.returned_on ?? r.returned_date), status: r.status })) : items
 
-  const totalAssignments = items.length
-  const activeAssignments = items.filter(i => (i.status || '').toLowerCase() === 'active').length
-  const overdueAssignments = items.filter(i => i.return_date && new Date(i.return_date) < new Date() && ((i.status || '').toLowerCase() !== 'returned')).length
-  const upcomingReturns = items.filter(i => i.return_date && (() => { const d = new Date(i.return_date); const now = new Date(); const in7 = new Date(now.getTime() + 7*24*60*60*1000); return d >= now && d <= in7 })()).length
+  // Use polled data as authoritative when available so counts and UI stay in sync
+  const assignmentsSource = Array.isArray(polledAssignments) ? allAssignments : items
+
+  const totalAssignments = assignmentsSource.length
+  const activeAssignments = assignmentsSource.filter(i => (i.status || '').toLowerCase() === 'active').length
+  // count overdue based on explicit status set by user
+  const overdueByStatus = assignmentsSource.filter(i => (i.status || '').toLowerCase() === 'overdue').length
+  // also compute date-based overdue so we can show both numbers (date-based may be larger if return_date is past)
+  const overdueByDate = assignmentsSource.filter(i => i.return_date && (() => { const d = new Date(i.return_date); const today = new Date(); // compare dates only (ignore time)
+    const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const td = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    return dd < td
+  })() && ((i.status || '').toLowerCase() !== 'returned')).length
+  const upcomingReturns = assignmentsSource.filter(i => i.return_date && (() => { const d = new Date(i.return_date); const now = new Date(); const in7 = new Date(now.getTime() + 7*24*60*60*1000); const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const td = new Date(now.getFullYear(), now.getMonth(), now.getDate()); return dd >= td && dd <= new Date(in7.getFullYear(), in7.getMonth(), in7.getDate()) })()).length
 
   // Simple inline form modal replacement to keep code short
   function AssignmentForm() {
@@ -318,7 +376,7 @@ export default function AssignmentsPage() {
         <StatsCards stats={[
           { title: 'Total Assignments', value: <span className="text-purple-600">{totalAssignments}</span>, subtitle: 'All assignments' },
           { title: 'Active', value: <span className="text-green-600">{activeAssignments}</span>, subtitle: 'Currently assigned' },
-          { title: 'Overdue', value: <span className="text-red-600">{overdueAssignments}</span>, subtitle: 'Past return date' },
+          { title: 'Overdue', value: <span className="text-red-600">{overdueByStatus}</span>, subtitle: `By status — date-overdue: ${overdueByDate}` },
           { title: 'Upcoming Returns', value: <span className="text-blue-600">{upcomingReturns}</span>, subtitle: 'Next 7 days' },
         ]} />
 
@@ -332,9 +390,22 @@ export default function AssignmentsPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {selectedIds.length > 0 && (
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div className="text-sm text-foreground">{selectedIds.length} selected</div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={exportSelected}>Export</Button>
+                  <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>Delete</Button>
+                </div>
+              </div>
+            )}
+
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <input role="checkbox" type="checkbox" checked={selectedIds.length > 0 && selectedIds.length === filtered.length} onChange={(e) => toggleSelectAll(e.target.checked)} className="accent-primary" />
+                  </TableHead>
                   <TableHead>Asset ID</TableHead>
                   <TableHead>User ID</TableHead>
                   <TableHead>Assigned Date</TableHead>
@@ -346,6 +417,7 @@ export default function AssignmentsPage() {
               <TableBody>
                 {filtered.map((r) => (
                   <TableRow key={r.id}>
+                    <TableCell className="w-12"><input role="checkbox" type="checkbox" checked={selectedIds.includes(r.id)} onChange={(e) => toggleSelectOne(r.id, e.target.checked)} className="accent-primary" /></TableCell>
                     <TableCell className="font-medium">{assetsLookup[String(r.asset_id)] ?? String(r.asset_id)}</TableCell>
                     <TableCell>{usersLookup[String(r.user_id)] ?? String(r.user_id)}</TableCell>
                     <TableCell className="text-muted-foreground">{formatDateCell(r.assigned_date)}</TableCell>
@@ -377,6 +449,7 @@ export default function AssignmentsPage() {
 
         {open && <AssignmentForm />}
         <ConfirmationDialog open={confirmOpen} onOpenChange={setConfirmOpen} title="Delete Assignment" description={`Are you sure you want to delete this assignment?`} confirmText="Delete" cancelText="Cancel" onConfirm={confirmDelete} variant="destructive" />
+        <ConfirmationDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen} title="Delete Assignments" description={`Are you sure you want to delete ${selectedIds.length} selected assignments?`} confirmText="Delete" cancelText="Cancel" onConfirm={performBulkDelete} variant="destructive" />
       </main>
     </div>
   )

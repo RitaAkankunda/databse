@@ -18,6 +18,8 @@ import {
   YAxis,
   CartesianGrid,
   Legend,
+  LineChart,
+  Line,
 } from 'recharts';
 import { 
   Users, 
@@ -110,9 +112,66 @@ export default function DashboardPage() {
   const totalAssets = Array.isArray(polledAssets) ? polledAssets.length : "-";
   const activeUsers = Array.isArray(polledUsers) ? polledUsers.filter((u:any) => (u.status||"").toLowerCase() === "active").length : "-";
   const openAssignments = Array.isArray(polledAssignments) ? polledAssignments.filter(a => { const s = (a.status||"").toLowerCase(); return s !== 'returned' && s !== 'returned_on' && s !== 'completed' }).length : "-";
+  // prefer explicit 'Overdue' status for the main count; compute date-based overdue for context
+  const overdueByStatus = Array.isArray(polledAssignments) ? polledAssignments.filter(a => (a.status||"").toLowerCase() === 'overdue').length : '-'
+  const overdueByDate = Array.isArray(polledAssignments) ? polledAssignments.filter(a => a.return_date && new Date(a.return_date) < new Date() && ((a.status||"").toLowerCase() !== 'returned')).length : '-'
   const openMaintenance = Array.isArray(polledMaintenance) ? polledMaintenance.length : "-";
 
   useEffect(() => { if (Array.isArray(polledAssets)) setRecentAssets(polledAssets.slice(-3).reverse()) }, [polledAssets]);
+
+  // --- Additional charts data (reuse helpers similar to statistics page)
+  function getLastNMonths(n = 12) {
+    const months: { key: string; label: string }[] = [];
+    const now = new Date();
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = `${d.toLocaleString(undefined, { month: 'short' })} ${d.getFullYear().toString().slice(-2)}`;
+      months.push({ key, label });
+    }
+    return months;
+  }
+
+  function monthKeyFromDate(dateStr: string | null | undefined) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return null;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  const months = getLastNMonths(12);
+
+  // assignments by status
+  const assignmentsByStatus = Array.isArray(polledAssignments)
+    ? Object.entries(polledAssignments.reduce((acc: any, a: any) => { const s = (a.status || 'Unknown').toString(); acc[s] = (acc[s] || 0) + 1; return acc; }, {})).map(([name, value]) => ({ name, value }))
+    : [];
+
+  // assets over time
+  const assetsOverTime = months.map(m => ({ month: m.label, key: m.key, count: 0 }));
+  if (Array.isArray(polledAssets)) {
+    const map = new Map(assetsOverTime.map(a => [a.key, a]));
+    for (const a of polledAssets) {
+      const k = monthKeyFromDate(a.purchase_date || a.created_at || a.created);
+      if (k && map.has(k)) map.get(k)!.count += 1;
+    }
+  }
+
+  // maintenance cost per month
+  const maintenanceByMonth = months.map(m => ({ month: m.label, key: m.key, total: 0 }));
+  if (Array.isArray(polledMaintenance)) {
+    const map = new Map(maintenanceByMonth.map(a => [a.key, a]));
+    for (const m of polledMaintenance) {
+      const k = monthKeyFromDate(m.maintenance_date || m.date);
+      const cost = m.cost ? Number(m.cost) : 0;
+      if (k && map.has(k)) map.get(k)!.total += cost;
+    }
+  }
+
+  // valuation trend average per month
+  const valuationTrend = months.map(m => ({ month: m.label, key: m.key, avg: 0 }));
+  if (Array.isArray(polledMaintenance)) {
+    // leave empty if valuations not available; polled valuations not present on this page
+  }
 
   if (!ready) return <div className="min-h-screen" />;
 
@@ -138,6 +197,86 @@ export default function DashboardPage() {
               <img src="/dash-hero.svg" alt="decor" className="h-full w-full object-cover" />
             </div>
           </div>
+        </div>
+        {/* New visual charts area */}
+        <div className="mt-6 grid gap-6 lg:grid-cols-3">
+          <Card className="card-modern">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Assignments by Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {assignmentsByStatus.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No assignment data</div>
+              ) : (
+                <div style={{ width: '100%', height: 200 }}>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={assignmentsByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>
+                        {assignmentsByStatus.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <ReTooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="card-modern">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Assets Created (12mo)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div style={{ width: '100%', height: 200 }}>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={assetsOverTime.map(a => ({ month: a.month, count: a.count }))}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <ReTooltip />
+                    <Line type="monotone" dataKey="count" stroke={COLORS[0]} strokeWidth={2} dot={{ r: 2 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-modern">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Maintenance Cost (12mo)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div style={{ width: '100%', height: 200 }}>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={maintenanceByMonth.map(m => ({ month: m.month, total: Math.round(m.total) }))}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <ReTooltip />
+                    <Bar dataKey="total" fill={COLORS[2]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-modern lg:col-span-3">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Valuation Trend (avg/month)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div style={{ width: '100%', height: 120 }}>
+                <ResponsiveContainer width="100%" height={120}>
+                  <LineChart data={valuationTrend.map(v => ({ month: v.month, avg: v.avg }))}>
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <ReTooltip />
+                    <Line type="monotone" dataKey="avg" stroke={COLORS[1]} strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Enhanced Stats Cards */}
@@ -186,7 +325,7 @@ export default function DashboardPage() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Open Assignments</p>
                   <p className="text-3xl font-bold text-foreground mt-2">{openAssignments}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Assets currently assigned</p>
+                  <p className="text-xs text-muted-foreground mt-1">Assets currently assigned • {overdueByStatus} overdue (date: {overdueByDate})</p>
                 </div>
                 <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors">
                   <Activity className="h-6 w-6 text-orange-600" />

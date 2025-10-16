@@ -27,6 +27,8 @@ type ApiAsset = {
   status?: string | null;
   purchase_cost?: number | null;
   category_id?: number | null;
+  category_name?: string | null;
+  category?: { category_name?: string | null } | null;
   location_id?: number | null;
   supplier_id?: number | null;
   purchase_date?: string | null;
@@ -45,6 +47,8 @@ export default function AssetsPage() {
   const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([])
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [assetToDelete, setAssetToDelete] = useState<any | null>(null)
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [assignedMap, setAssignedMap] = useState<Record<string,string>>({})
   const [assignedMapReady, setAssignedMapReady] = useState(false)
 
@@ -73,6 +77,7 @@ export default function AssetsPage() {
         classification: a.category_id ?? null,
         assignedUser: '-',
         categoryId: a.category_id ?? null,
+        categoryName: a.category_name ?? (a.category ? (a.category.category_name || null) : null) ?? null,
         locationId: a.location_id ?? null,
         supplierId: a.supplier_id ?? null,
         purchaseDate: a.purchase_date ? String(a.purchase_date).slice(0, 10) : '',
@@ -153,6 +158,46 @@ export default function AssetsPage() {
       String(asset.serialNumber || "").toLowerCase().includes(q)
     );
   });
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) setSelectedIds(filteredAssets.map(a => a.id))
+    else setSelectedIds([])
+  }
+
+  const toggleSelectOne = (id: string, checked: boolean) => {
+    setSelectedIds(prev => checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id))
+  }
+
+  const exportSelected = () => {
+    const rows = assets.filter(a => selectedIds.includes(a.id))
+    if (rows.length === 0) return
+    const headers = ['id','name','serialNumber','categoryName','status','purchasePrice']
+    const csv = [headers.join(',')].concat(rows.map(r => headers.map(h => `"${String((r as any)[h] ?? '')}"`).join(','))).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `assets_export_${new Date().toISOString().slice(0,10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  async function performBulkDelete() {
+    if (selectedIds.length === 0) return
+    try {
+      await Promise.all(selectedIds.map(id => fetch(`${API_BASE_URL}/api/assets/${id}/`, { method: 'DELETE' })))
+      setAssets(prev => prev.filter(a => !selectedIds.includes(a.id)))
+      showSuccess('Assets Deleted', `${selectedIds.length} assets removed`)
+      setSelectedIds([])
+    } catch (e) {
+      console.error(e)
+      showError('Bulk Delete Failed', 'Unable to delete some assets')
+    } finally {
+      setBulkDeleteConfirmOpen(false)
+    }
+  }
 
 
 
@@ -245,6 +290,8 @@ export default function AssetsPage() {
             status: updated.status ?? 'Active',
             purchasePrice: updated.purchase_cost ?? 0,
             currentValue: updated.purchase_cost ?? 0,
+            categoryId: updated.category_id ?? null,
+            categoryName: updated.category_name ?? (updated.category ? (updated.category.category_name || null) : null) ?? null,
           } : a))
           // Close dialog on success and clear selection
           setIsDialogOpen(false)
@@ -322,6 +369,8 @@ export default function AssetsPage() {
             purchasePrice: created.purchase_cost ?? 0,
             currentValue: created.purchase_cost ?? 0,
             classification: '-',
+            categoryId: created.category_id ?? null,
+            categoryName: created.category_name ?? (created.category ? (created.category.category_name || null) : null) ?? null,
             assignedUser: detail.assignedTo ? (userNameFromId(detail.assignedTo) || '-') : '-',
           }])
           setIsDialogOpen(false)
@@ -374,10 +423,30 @@ export default function AssetsPage() {
             </div>
           </CardHeader>
           <CardContent>
+              {selectedIds.length > 0 && (
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <div className="text-sm text-foreground">{selectedIds.length} selected</div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={exportSelected}>Export</Button>
+                    <Button variant="destructive" onClick={() => setBulkDeleteConfirmOpen(true)}>Delete</Button>
+                  </div>
+                </div>
+              )}
+
               <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <input
+                      role="checkbox"
+                      type="checkbox"
+                      checked={selectedIds.length > 0 && selectedIds.length === filteredAssets.length}
+                      onChange={(e) => toggleSelectAll(e.target.checked)}
+                      className="accent-primary"
+                    />
+                  </TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>Serial Number</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Supplier</TableHead>
@@ -403,8 +472,14 @@ export default function AssetsPage() {
                 ) : (
                   filteredAssets.map((asset) => (
                     <TableRow key={asset.id}>
+                      <TableCell className="w-12">
+                        <input role="checkbox" type="checkbox" checked={selectedIds.includes(asset.id)} onChange={(e) => toggleSelectOne(asset.id, e.target.checked)} className="accent-primary" />
+                      </TableCell>
                       <TableCell className="font-medium">
                         {asset.name}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {asset.categoryName ?? '-' }
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {asset.serialNumber}
@@ -455,6 +530,7 @@ export default function AssetsPage() {
           suppliers={suppliers}
 
         />
+        <ConfirmationDialog open={bulkDeleteConfirmOpen} onOpenChange={(open) => { if (!open) setBulkDeleteConfirmOpen(false) }} title="Delete assets" description={`Are you sure you want to delete ${selectedIds.length} selected assets? This action cannot be undone.`} confirmText="Delete" variant="destructive" onConfirm={performBulkDelete} />
         <ConfirmationDialog
           open={deleteConfirmOpen}
           onOpenChange={(open) => { if (!open) { setAssetToDelete(null); setDeleteConfirmOpen(false) } else setDeleteConfirmOpen(open) }}

@@ -42,7 +42,13 @@ export default function MaintenancePage() {
     const savedMaintenance = localStorage.getItem(STORAGE_KEY);
     if (savedMaintenance) {
       try {
-        const raw = JSON.parse(savedMaintenance)
+        console.debug('maintenance: raw saved payload', savedMaintenance)
+        let raw = JSON.parse(savedMaintenance)
+        // Accept either an array or an object map (legacy)
+        if (!Array.isArray(raw) && raw && typeof raw === 'object') {
+          // convert object map to array of values
+          raw = Object.values(raw)
+        }
         // Normalize older/demo shapes into the canonical maintenance shape
         const normalized = Array.isArray(raw) ? raw.map((r:any) => {
           const asset_id = r.assetId ?? r.asset_id ?? (r.assetId ? String(r.assetId) : (r.assetId || ''))
@@ -66,8 +72,9 @@ export default function MaintenancePage() {
         // Persist the cleaned normalized array back to localStorage so any
         // legacy `priority` values are removed immediately for all clients.
         try {
+          console.debug('maintenance: persisting normalized payload', normalized)
           localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized))
-        } catch (e) { /* ignore */ }
+        } catch (e) { console.warn('maintenance: failed to persist normalized payload', e) }
         setMaintenanceRecords(normalized)
       } catch (error) {
         console.error("Error loading maintenance records from localStorage:", error);
@@ -131,7 +138,7 @@ export default function MaintenancePage() {
   const confirmDelete = () => {
     if (maintenanceToDelete) {
       setMaintenanceRecords(prev => prev.filter(maintenance => maintenance.id !== maintenanceToDelete.id));
-      showSuccess("Maintenance Deleted", `Maintenance record for ${maintenanceToDelete.asset} has been successfully deleted.`);
+      showSuccess("Maintenance Deleted", `Maintenance record for ${maintenanceToDelete.asset_id || maintenanceToDelete.asset || maintenanceToDelete.id} has been successfully deleted.`);
       setMaintenanceToDelete(null);
     }
   };

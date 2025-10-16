@@ -60,11 +60,12 @@ export function registerUser(
   newUser: Omit<UserRecord, "id">
 ): { ok: true } | { ok: false; error: string } {
   const users = readUsers();
-  const existsByEmail = users.some(
-    (u) => u.email.toLowerCase() === newUser.email.toLowerCase()
+  // defensively handle possibly malformed stored users (missing email/name)
+  const existsByEmail = users.some((u) =>
+    (u.email ?? "").toLowerCase() === (newUser.email ?? "").toLowerCase()
   );
-  const existsByFullName = users.some(
-    (u) => u.name.toLowerCase() === newUser.name.toLowerCase()
+  const existsByFullName = users.some((u) =>
+    (u.name ?? "").toLowerCase() === (newUser.name ?? "").toLowerCase()
   );
   if (existsByEmail) return { ok: false, error: "Email already registered" };
   if (existsByFullName)
@@ -90,7 +91,10 @@ export function loginWithFullName(
   password: string
 ): { ok: true } | { ok: false; error: string } {
   const users = readUsers();
-  const user = users.find((u) => u.name.trim().toLowerCase() === name.trim().toLowerCase());
+  // defensively handle malformed stored users
+  const user = users.find(
+    (u) => (u.name ?? "").trim().toLowerCase() === name.trim().toLowerCase()
+  );
   // debug: login attempt
   // eslint-disable-next-line no-console
   console.debug('auth.loginWithFullName -> attempt', { name, found: !!user, usersCount: users.length })
@@ -114,7 +118,9 @@ export function loginByIdentifier(
   const id = identifier.trim();
   const lower = id.toLowerCase();
   const user = users.find(
-    (u) => u.name.trim().toLowerCase() === lower || u.email.trim().toLowerCase() === lower
+    (u) =>
+      (u.name ?? "").trim().toLowerCase() === lower ||
+      (u.email ?? "").trim().toLowerCase() === lower
   );
   // debug: login by identifier
   // eslint-disable-next-line no-console

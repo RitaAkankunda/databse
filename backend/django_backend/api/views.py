@@ -26,7 +26,8 @@ class AssetViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Annotate assets with their latest assignment (by assigned_date then id)
         latest = Assignment.objects.filter(asset=OuterRef('pk')).order_by('-assigned_date', '-assignment_id')
-        qs = Asset.objects.all().annotate(
+        # select_related to eager-load the category relation for serializers
+        qs = Asset.objects.select_related('category').all().annotate(
             current_holder_name=Subquery(latest.values('user__name')[:1]),
             current_assignment_status=Subquery(latest.values('status')[:1]),
             current_assignment_date=Subquery(latest.values('assigned_date')[:1])
