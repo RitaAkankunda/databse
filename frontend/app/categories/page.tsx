@@ -19,7 +19,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8
 type Category = { category_id: number; category_name: string; description?: string | null; created?: string | null }
 
 export default function CategoriesPage() {
-		const [categories, setCategories] = useState<CategoryType[]>([{ id: String(-1), category_name: 'Others', description: 'Uncategorized / Other' } as CategoryType])
+		const [categories, setCategories] = useState<CategoryType[]>([])
 	const [search, setSearch] = useState("")
 	const [isDialogOpen, setIsDialogOpen] = useState(false)
 		const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null)
@@ -33,19 +33,9 @@ export default function CategoriesPage() {
 const { data: polledCategories } = usePolling<any[]>(`${API_BASE_URL}/api/categories/`, 30000, !isDialogOpen && !deleteConfirmOpen)
 const { data: polledAssets } = usePolling<any[]>(`${API_BASE_URL}/api/assets/`, 30000, !isDialogOpen && !deleteConfirmOpen)
 
-// Ensure there's always an "Others" category in the UI so users can assign uncategorized assets
-function ensureOthersCategory(list: any[]) {
-	if (!Array.isArray(list)) return list
-	const hasOthers = list.some((c: any) => (c.category_name || c.name || '').toLowerCase() === 'others')
-	if (hasOthers) return list
-	// prepend a synthetic Others entry using the same shape the backend returns so it appears at the top
-	return [{ category_id: -1, category_name: 'Others', description: 'Uncategorized / Other', created_at: null }, ...list]
-}
-
 useEffect(() => {
 	if (Array.isArray(polledCategories)) {
-		const withOthers = ensureOthersCategory(polledCategories)
-		setCategories(withOthers.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '', created: d.created_at ?? d.created ?? null })))
+		setCategories(polledCategories.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '', created: d.created_at ?? d.created ?? null })))
 	}
 }, [polledCategories])
 
@@ -64,18 +54,17 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 
 	useEffect(() => {
 			(async () => {
-				try {
-					const res = await fetch(`${API_BASE_URL}/api/categories/`)
-					if (!res.ok) throw new Error('Failed to load categories')
-							const data: Array<{ category_id: number; category_name: string; description?: string | null; created_at?: string | null; created?: string | null }> = await res.json()
-							const withOthers = ensureOthersCategory(data)
-							const normalized = withOthers.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '', created: d.created_at ?? d.created ?? null }))
-					setCategories(normalized)
-				} catch (e) {
-					console.error(e)
-					showError('Load Failed', 'Unable to load categories')
-				}
-			})()
+						try {
+							const res = await fetch(`${API_BASE_URL}/api/categories/`)
+							if (!res.ok) throw new Error('Failed to load categories')
+									const data: Array<{ category_id: number; category_name: string; description?: string | null; created_at?: string | null; created?: string | null }> = await res.json()
+									const normalized = data.map(d => ({ id: String(d.category_id), category_name: d.category_name, description: d.description || '', created: d.created_at ?? d.created ?? null }))
+							setCategories(normalized)
+						} catch (e) {
+							console.error(e)
+							showError('Load Failed', 'Unable to load categories')
+						}
+					})()
 	}, [])
 
 		const filtered = categories.filter(c => [String(c.id), c.category_name, c.description || ''].join(' ').toLowerCase().includes(search.toLowerCase()))

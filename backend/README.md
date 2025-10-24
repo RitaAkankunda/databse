@@ -1,52 +1,25 @@
-# Backend (Express + Prisma + MySQL)
+# Backend (Django)
 
-This backend exposes a REST API for the Asset Management System and uses Prisma to access a MySQL database.
+The Node/Prisma backend previously present in this repository has been removed. The canonical backend for this project is the Django application located at `backend/django_backend/`.
 
-## Prerequisites
-- Node.js 18+
-- MySQL 8+ running locally or remotely
+Please use the Django backend for all API development, migrations, and database access. See the following files for setup and running instructions (MySQL is required):
 
-## 1) Configure environment
-Create a `.env` file in this folder with your MySQL connection string and server port:
+- `backend/django_backend/README.md`
+- `backend/django_backend/SETUP.md`
 
-```
-DATABASE_URL="mysql://root:password@localhost:3306/asset_db"
-PORT=4000
-```
+Quick-start (PowerShell):
 
-Tip: If your team prefers, copy from `.env.example` (create one if missing) and adjust values.
-
-## 2) Install dependencies
-
-```bash
-npm install
+```powershell
+cd backend/django_backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python manage.py makemigrations
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver 8000
 ```
 
-## 3) Create database schema
-Generate the Prisma client and push the schema to your MySQL database:
+API root: http://127.0.0.1:8000/api/
 
-```bash
-npm run db:setup
-# which runs: prisma generate && prisma db push
-```
-
-If you already have an existing database schema, you can introspect it instead:
-
-```bash
-npm run prisma:pull && npm run prisma:generate
-```
-
-## 4) Run the API server
-
-```bash
-npm run dev
-# Server will start on http://localhost:4000 by default
-```
-
-### Health check
-Open `http://localhost:4000/api/health` — you should get `{ ok: true }`.
-
-## Notes
-- The Prisma client is generated into `src/generated/prisma`. Do not edit generated files.
-- If you change `prisma/schema.prisma`, re-run `npm run prisma:generate` or `npm run db:setup`.
-- Ensure your MySQL user has permissions to create/alter tables when using `db push`.
+If you have any automation or scripts that referenced the old Node/Prisma toolchain (Prisma client, `prisma` commands, `backend/package.json`), they can be removed or replaced with Django equivalents.

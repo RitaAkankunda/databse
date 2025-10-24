@@ -202,7 +202,18 @@ export default function ValuationsPage() {
           { title: 'Total Valuations', value: <span className="text-purple-600">{items.length}</span>, subtitle: 'All valuations' },
           { title: 'Assets Valued', value: <span className="text-green-600">{new Set(items.map(i => i.asset_id)).size}</span>, subtitle: 'Unique assets' },
           { title: 'Recent (30d)', value: <span className="text-blue-600">{items.filter(i => i.valuation_date && (new Date(i.valuation_date) >= new Date(Date.now() - 1000*60*60*24*30))).length}</span>, subtitle: 'Last 30 days' },
-          { title: 'Total Current Value', value: <span className="text-purple-600">UGX {items.reduce((s,i) => s + Number(i.current_value || 0), 0).toLocaleString()}</span>, subtitle: 'Sum current value' },
+          { title: 'Total Current Value', value: <span className="text-purple-600">UGX {(() => {
+              const latestByAsset: Record<number, Valuation> = {}
+              items.forEach(i => {
+                const aid = Number(i.asset_id)
+                if (!aid && aid !== 0) return
+                const existing = latestByAsset[aid]
+                const tExisting = existing && existing.valuation_date ? new Date(existing.valuation_date).getTime() : 0
+                const tThis = i.valuation_date ? new Date(i.valuation_date).getTime() : 0
+                if (!existing || tThis >= tExisting) latestByAsset[aid] = i
+              })
+              return Object.values(latestByAsset).reduce((s, v) => s + Number(v.current_value ?? v.initial_value ?? 0), 0).toLocaleString()
+            })()}</span>, subtitle: 'Sum of latest valuation per asset' },
         ]} />
 
         <Card>

@@ -18,7 +18,7 @@ const EyeSlashIcon = () => (
 
 export default function LoginPage() {
   const router = useRouter();
-  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,12 +28,12 @@ export default function LoginPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!fullName.trim() || !password) {
-      setError("Full name and password are required");
+    if (!email.trim() || !password) {
+      setError("Email and password are required");
       return;
     }
     setSubmitting(true);
-  const res = loginByIdentifier(fullName, password);
+  const res = loginByIdentifier(email, password);
     setSubmitting(false);
     if (!res.ok) {
       setError(res.error || "Login failed");
@@ -61,12 +61,13 @@ export default function LoginPage() {
           <p className="mb-6 text-sm text-muted-foreground">Enter your credentials to access the dashboard.</p>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm text-foreground">Full name</Label>
+              <Label htmlFor="email" className="text-sm text-foreground">Email</Label>
               <Input
-                id="name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your full name"
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
                 className="bg-input/50 text-foreground placeholder:text-muted-foreground border border-input"
               />
             </div>

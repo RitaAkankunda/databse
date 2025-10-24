@@ -3,27 +3,20 @@
 
 -- Yearly totals
 SELECT
-  EXTRACT(YEAR FROM disposal_date)::int AS year,
-  SUM(disposal_value)::numeric(14,2) AS total
+  YEAR(disposal_date) AS year,
+  ROUND(SUM(disposal_value), 2) AS total
 FROM api_disposal
 WHERE disposal_date IS NOT NULL
-GROUP BY year
+GROUP BY YEAR(disposal_date)
 ORDER BY year;
 
 -- Quarterly totals
 -- This groups months into quarters and outputs year + quarter label
 SELECT
-  year,
-  quarter,
-  SUM(total) AS total
-FROM (
-  SELECT
-    EXTRACT(YEAR FROM disposal_date)::int AS year,
-    CEIL(EXTRACT(MONTH FROM disposal_date)::numeric / 3)::int AS quarter,
-    SUM(disposal_value)::numeric(14,2) AS total
-  FROM api_disposal
-  WHERE disposal_date IS NOT NULL
-  GROUP BY year, quarter
-) q
-GROUP BY year, quarter
+  YEAR(disposal_date) AS year,
+  QUARTER(disposal_date) AS quarter,
+  ROUND(SUM(disposal_value), 2) AS total
+FROM api_disposal
+WHERE disposal_date IS NOT NULL
+GROUP BY YEAR(disposal_date), QUARTER(disposal_date)
 ORDER BY year, quarter;

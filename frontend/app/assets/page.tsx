@@ -63,28 +63,48 @@ export default function AssetsPage() {
     return null
   }
 
-  // Poll assets for live updates
+  // Poll assets and valuations for live updates. Use latest valuation for currentValue when available.
   const { data: polledAssets } = usePolling<any[]>(`${API_BASE_URL}/api/assets/`, 15000, !isDialogOpen && !deleteConfirmOpen)
+  const { data: polledValuations } = usePolling<any[]>(`${API_BASE_URL}/api/valuations/`, 15000, !isDialogOpen && !deleteConfirmOpen)
   useEffect(() => {
     if (Array.isArray(polledAssets)) {
-      setAssets(polledAssets.map(a => ({
-        id: String(a.asset_id),
-        name: a.asset_name,
-        serialNumber: a.serial_number ?? '',
-        status: a.status ?? 'Active',
-        purchasePrice: a.purchase_cost ?? 0,
-        currentValue: a.purchase_cost ?? 0,
-        classification: a.category_id ?? null,
-        assignedUser: '-',
-        categoryId: a.category_id ?? null,
-        categoryName: a.category_name ?? (a.category ? (a.category.category_name || null) : null) ?? null,
-        locationId: a.location_id ?? null,
-        supplierId: a.supplier_id ?? null,
-        purchaseDate: a.purchase_date ? String(a.purchase_date).slice(0, 10) : '',
-        warrantyExpiry: a.warranty_expiry ? String(a.warranty_expiry).slice(0, 10) : '',
-      })))
+      const valuations = Array.isArray(polledValuations) ? polledValuations : []
+      const findLatestValuation = (assetId: any) => {
+        const sid = String(assetId)
+        const vals = valuations.filter((v:any) => String(v.asset ?? v.asset_id ?? '') === sid)
+        if (vals.length === 0) return null
+        vals.sort((x:any,y:any) => {
+          const tx = x.valuation_date ? new Date(x.valuation_date).getTime() : 0
+          const ty = y.valuation_date ? new Date(y.valuation_date).getTime() : 0
+          return ty - tx
+        })
+        return vals[0]
+      }
+
+      setAssets(polledAssets.map(a => {
+        const latest = findLatestValuation(a.asset_id)
+        const currentFromVal = latest ? Number(latest.current_value ?? latest.initial_value ?? 0) : null
+        const purchase = a.purchase_cost ?? 0
+        return ({
+          id: String(a.asset_id),
+          name: a.asset_name,
+          serialNumber: a.serial_number ?? '',
+          status: a.status ?? 'Active',
+          purchasePrice: purchase,
+          // prefer latest valuation current_value (or initial_value), fall back to purchase cost
+          currentValue: (currentFromVal != null && !Number.isNaN(currentFromVal)) ? currentFromVal : purchase,
+          classification: a.category_id ?? null,
+          assignedUser: '-',
+          categoryId: a.category_id ?? null,
+          categoryName: a.category_name ?? (a.category ? (a.category.category_name || null) : null) ?? null,
+          locationId: a.location_id ?? null,
+          supplierId: a.supplier_id ?? null,
+          purchaseDate: a.purchase_date ? String(a.purchase_date).slice(0, 10) : '',
+          warrantyExpiry: a.warranty_expiry ? String(a.warranty_expiry).slice(0, 10) : '',
+        })
+      }))
     }
-  }, [polledAssets])
+  }, [polledAssets, polledValuations])
 
   // Poll lookups so names are kept in sync (less frequent)
   const { data: polledCategories } = usePolling<any[]>(`${API_BASE_URL}/api/categories/`, 60000, !isDialogOpen && !deleteConfirmOpen)
