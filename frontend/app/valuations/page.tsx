@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Plus, Search, Edit, Trash2, ReceiptText } from "lucide-react"
+import { Plus, Search, Edit, Trash2, ReceiptText, DollarSign, Package, TrendingUp } from "lucide-react"
 import { ConfirmationDialog } from "@/components/confirmation-dialog"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useNotificationActions } from "@/components/notification-system"
@@ -185,50 +185,131 @@ export default function ValuationsPage() {
     )
   }
 
+  const totalValuations = items.length;
+  const assetsValued = new Set(items.map(i => i.asset_id)).size;
+  const recent30d = items.filter(i => i.valuation_date && (new Date(i.valuation_date) >= new Date(Date.now() - 1000*60*60*24*30))).length;
+  const latestByAsset: Record<number, Valuation> = {};
+  items.forEach(i => {
+    const aid = Number(i.asset_id);
+    if (!aid && aid !== 0) return;
+    const existing = latestByAsset[aid];
+    const tExisting = existing && existing.valuation_date ? new Date(existing.valuation_date).getTime() : 0;
+    const tThis = i.valuation_date ? new Date(i.valuation_date).getTime() : 0;
+    if (!existing || tThis >= tExisting) latestByAsset[aid] = i;
+  });
+  const totalCurrentValue = Object.values(latestByAsset).reduce((s, v) => s + Number(v.current_value ?? v.initial_value ?? 0), 0);
+
   return (
-    <div className="flex">
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
       <SidebarNav />
-      <main className="flex-1 p-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Asset Valuations</h1>
-            <p className="text-muted-foreground">Track value changes for assets</p>
+      <main className="flex-1 p-8 bg-gradient-to-br from-white/40 to-transparent">
+        {/* Enhanced Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between relative">
+            <div>
+              <h1 className="text-4xl font-bold text-foreground mb-2">
+                Asset Valuations
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                Track value changes for assets
+              </p>
+            </div>
+            <Button 
+              onClick={handleAdd} 
+              className="gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              size="lg"
+            >
+              <Plus className="h-5 w-5"/>Add Valuation
+            </Button>
           </div>
-          <Button variant="success" onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Valuation</Button>
         </div>
 
-        {/* Stats cards for valuations */}
-        <StatsCards stats={[
-          { title: 'Total Valuations', value: <span className="text-purple-600">{items.length}</span>, subtitle: 'All valuations' },
-          { title: 'Assets Valued', value: <span className="text-green-600">{new Set(items.map(i => i.asset_id)).size}</span>, subtitle: 'Unique assets' },
-          { title: 'Recent (30d)', value: <span className="text-blue-600">{items.filter(i => i.valuation_date && (new Date(i.valuation_date) >= new Date(Date.now() - 1000*60*60*24*30))).length}</span>, subtitle: 'Last 30 days' },
-          { title: 'Total Current Value', value: <span className="text-purple-600">UGX {(() => {
-              const latestByAsset: Record<number, Valuation> = {}
-              items.forEach(i => {
-                const aid = Number(i.asset_id)
-                if (!aid && aid !== 0) return
-                const existing = latestByAsset[aid]
-                const tExisting = existing && existing.valuation_date ? new Date(existing.valuation_date).getTime() : 0
-                const tThis = i.valuation_date ? new Date(i.valuation_date).getTime() : 0
-                if (!existing || tThis >= tExisting) latestByAsset[aid] = i
-              })
-              return Object.values(latestByAsset).reduce((s, v) => s + Number(v.current_value ?? v.initial_value ?? 0), 0).toLocaleString()
-            })()}</span>, subtitle: 'Sum of latest valuation per asset' },
-        ]} />
+        {/* Enhanced Statistics Cards */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+          <Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200/30 rounded-full blur-3xl"></div>
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-purple-700 uppercase tracking-wide">Total Valuations</p>
+                  <p className="text-3xl font-extrabold text-gray-900 mt-2">{totalValuations}</p>
+                  <p className="text-xs text-muted-foreground mt-1">All valuations</p>
+                </div>
+                <div className="h-14 w-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <ReceiptText className="h-7 w-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
+          <Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-green-200/30 rounded-full blur-3xl"></div>
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-green-700 uppercase tracking-wide">Assets Valued</p>
+                  <p className="text-3xl font-extrabold text-green-600 mt-2">{assetsValued}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Unique assets</p>
+                </div>
+                <div className="h-14 w-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <Package className="h-7 w-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/30 rounded-full blur-3xl"></div>
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Recent (30d)</p>
+                  <p className="text-3xl font-extrabold text-blue-600 mt-2">{recent30d}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
+                </div>
+                <div className="h-14 w-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <TrendingUp className="h-7 w-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-200/30 rounded-full blur-3xl"></div>
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-orange-700 uppercase tracking-wide">Total Current Value</p>
+                  <p className="text-3xl font-extrabold text-gray-900 mt-2">UGX {totalCurrentValue.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Sum of latest per asset</p>
+                </div>
+                <div className="h-14 w-14 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <DollarSign className="h-7 w-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="card-modern hover:shadow-xl transition-all duration-300 border-2 border-slate-200 bg-gradient-to-br from-white to-slate-50/50">
+          <CardHeader className="pb-4">
             <div className="flex items-center gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Search valuations by asset or method" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input 
+                  placeholder="Search valuations by asset or method" 
+                  value={search} 
+                  onChange={(e) => setSearch(e.target.value)} 
+                  className="pl-11 h-12 text-base border-2 focus:border-primary transition-all" 
+                />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
+            <div className="overflow-x-auto">
+            <Table className="min-w-full">
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-gradient-to-r from-slate-100 to-slate-50 hover:bg-slate-100/50">
                   <TableHead>Asset ID</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Method</TableHead>
@@ -239,7 +320,7 @@ export default function ValuationsPage() {
               </TableHeader>
               <TableBody>
                 {filtered.map((r) => (
-                  <TableRow key={r.id}>
+                  <TableRow key={r.id} className="hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-colors duration-200">
                     <TableCell>{r.asset_id}</TableCell>
                     <TableCell className="text-muted-foreground">{r.valuation_date ? String(r.valuation_date).slice(0,10) : '-'}</TableCell>
                     <TableCell className="text-muted-foreground">{r.method || '-'}</TableCell>
@@ -247,8 +328,24 @@ export default function ValuationsPage() {
                     <TableCell>UGX {Number(r.current_value ?? 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="Edit"><Edit className="h-4 w-4"/></Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(r)} title="Delete" className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4"/></Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleEdit(r)} 
+                          title="Edit"
+                          className="hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                        >
+                          <Edit className="h-4 w-4"/>
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleDelete(r)} 
+                          title="Delete" 
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4"/>
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -260,6 +357,7 @@ export default function ValuationsPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
 

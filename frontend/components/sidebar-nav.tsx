@@ -104,7 +104,7 @@ export function SidebarNav() {
           </div>
         </div>
       </div>
-      <nav className="flex-1 space-y-2 p-4">
+      <nav className="flex-1 space-y-4 p-4">
         {allowedNav.map((item) => {
           const Icon = item.icon;
           // treat a nav item as active when the pathname equals the href or is a sub-route
@@ -115,7 +115,7 @@ export function SidebarNav() {
               href={item.href}
               prefetch={false}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 hover-lift group",
+                "flex items-center gap-3 rounded-xl px-4 py-4 text-sm font-medium transition-all duration-300 hover-lift group",
                 isActive
                   ? "bg-green-100 text-green-700 shadow-lg"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
@@ -137,7 +137,7 @@ export function SidebarNav() {
                 window.location.href = "/";
               }}
               className={cn(
-                "w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 hover-lift group",
+                "w-full flex items-center gap-3 rounded-xl px-4 py-4 text-sm font-medium transition-all duration-300 hover-lift group",
                 "text-muted-foreground hover:bg-red-50 hover:text-red-600"
               )}
             >

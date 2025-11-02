@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Plus, Search, Edit, Trash2 } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Package } from "lucide-react"
 import CategoryDialog, { Category as CategoryType } from "@/components/category-dialog"
 import { ConfirmationDialog } from "@/components/confirmation-dialog"
 import { useNotificationActions } from "@/components/notification-system"
@@ -115,32 +115,113 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 	}
 
 	return (
-		<div className="flex">
+		<div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
 			<SidebarNav />
-			<main className="flex-1 p-8">
-				<div className="mb-8 flex items-center justify-between">
-					<div>
-						<h1 className="text-3xl font-bold text-foreground">Categories</h1>
-						<p className="text-muted-foreground">Manage categories (category_id, category_name, description)</p>
-					</div>
-					<div className="flex items-center gap-2">
-						<div className="relative">
-							<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-							<Input className="pl-10" placeholder="Search categories" value={search} onChange={(e) => { setSearch(e.target.value) }} />
+			<main className="flex-1 p-8 bg-gradient-to-br from-white/40 to-transparent">
+				{/* Enhanced Header */}
+				<div className="mb-8">
+					<div className="flex items-center justify-between relative">
+						<div>
+							<h1 className="text-4xl font-bold text-foreground mb-2">
+								Categories Management
+							</h1>
+							<p className="text-lg text-muted-foreground">
+								Manage categories and their descriptions
+							</p>
 						</div>
-						<Button variant="success" onClick={() => { setSelectedCategory(null); setIsDialogOpen(true) }} className="gap-2"><Plus className="h-4 w-4"/>Add Category</Button>
+						<div className="flex items-center gap-2">
+							<div className="relative">
+								<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
+								<Input 
+									className="pl-11 h-12 text-base border-2 focus:border-primary transition-all" 
+									placeholder="Search categories" 
+									value={search} 
+									onChange={(e) => { setSearch(e.target.value) }} 
+								/>
+							</div>
+							<Button 
+								variant="success" 
+								onClick={() => { setSelectedCategory(null); setIsDialogOpen(true) }} 
+								className="gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+								size="lg"
+							>
+								<Plus className="h-5 w-5"/>
+								Add Category
+							</Button>
+						</div>
 					</div>
 				</div>
-				{/* Stats cards */}
-				<StatsCards stats={[
-					{ title: 'Total Categories', value: <span className="text-purple-600">{totalCategories}</span>, subtitle: 'All categories' },
-					{ title: 'With Assets', value: <span className="text-green-600">{categoriesWithAssets}</span>, subtitle: 'Referenced by assets' },
-					{ title: 'Empty', value: <span className="text-blue-600">{emptyCategories}</span>, subtitle: 'No assets' },
-					{ title: 'Recent (30d)', value: <span className="text-purple-600">{recentCategories}</span>, subtitle: 'Added last 30 days' },
-				]} />
+				{/* Enhanced Stats cards */}
+				<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+					<Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200">
+						<div className="absolute top-0 right-0 w-32 h-32 bg-purple-200/30 rounded-full blur-3xl"></div>
+						<CardContent className="p-6 relative">
+							<div className="flex items-center justify-between">
+								<div>
+									<p className="text-sm font-semibold text-purple-700 uppercase tracking-wide">Total Categories</p>
+									<p className="text-3xl font-extrabold text-gray-900 mt-2">{totalCategories}</p>
+									<p className="text-xs text-muted-foreground mt-1">All categories</p>
+								</div>
+								<div className="h-14 w-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+									<Package className="h-7 w-7 text-white" />
+								</div>
+							</div>
+						</CardContent>
+					</Card>
 
-				<Card>
-					<CardHeader />
+					<Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+						<div className="absolute top-0 right-0 w-32 h-32 bg-green-200/30 rounded-full blur-3xl"></div>
+						<CardContent className="p-6 relative">
+							<div className="flex items-center justify-between">
+								<div>
+									<p className="text-sm font-semibold text-green-700 uppercase tracking-wide">With Assets</p>
+									<p className="text-3xl font-extrabold text-green-600 mt-2">{categoriesWithAssets}</p>
+									<p className="text-xs text-muted-foreground mt-1">Referenced by assets</p>
+								</div>
+								<div className="h-14 w-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+									<Package className="h-7 w-7 text-white" />
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					<Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
+						<div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/30 rounded-full blur-3xl"></div>
+						<CardContent className="p-6 relative">
+							<div className="flex items-center justify-between">
+								<div>
+									<p className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Empty</p>
+									<p className="text-3xl font-extrabold text-blue-600 mt-2">{emptyCategories}</p>
+									<p className="text-xs text-muted-foreground mt-1">No assets</p>
+								</div>
+								<div className="h-14 w-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
+									<Package className="h-7 w-7 text-white" />
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					<Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200">
+						<div className="absolute top-0 right-0 w-32 h-32 bg-orange-200/30 rounded-full blur-3xl"></div>
+						<CardContent className="p-6 relative">
+							<div className="flex items-center justify-between">
+								<div>
+									<p className="text-sm font-semibold text-orange-700 uppercase tracking-wide">Recent (30d)</p>
+									<p className="text-3xl font-extrabold text-orange-600 mt-2">{recentCategories}</p>
+									<p className="text-xs text-muted-foreground mt-1">Added last 30 days</p>
+								</div>
+								<div className="h-14 w-14 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
+									<Package className="h-7 w-7 text-white" />
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+
+				<Card className="card-modern hover:shadow-xl transition-all duration-300 border-2 border-slate-200 bg-gradient-to-br from-white to-slate-50/50">
+					<CardHeader className="pb-4">
+						<h3 className="text-lg font-bold text-foreground">Categories List</h3>
+					</CardHeader>
 					<CardContent>
 							<div className="space-y-4">
 								<div className="flex items-center gap-4">
@@ -167,16 +248,32 @@ const recentCategories = (categoriesList || []).filter((c:any) => {
 									</div>
 								</div>
 								{pageItems.length === 0 && <div className="text-muted-foreground">No categories found.</div>}
-								<div className="grid gap-2">
+								<div className="grid gap-3">
 									{pageItems.map(c => (
-										<div key={c.id} className="flex items-center justify-between border rounded p-2">
+										<div key={c.id} className="flex items-center justify-between border-2 border-slate-200 rounded-lg p-4 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent hover:border-primary/30 transition-all duration-200 bg-white">
 											<div>
 												<div className="font-medium">{c.category_name}</div>
 												<div className="text-muted-foreground text-sm">{c.description || '-'}</div>
 											</div>
 											<div className="flex items-center gap-2">
-												<Button variant="ghost" size="icon" onClick={() => { setSelectedCategory({ id: c.id, category_name: c.category_name, description: c.description || '' }); setIsDialogOpen(true) }} title="Edit"><Edit className="h-4 w-4"/></Button>
-												<Button variant="ghost" size="icon" onClick={() => { setCategoryToDelete({ id: c.id, category_name: c.category_name, description: c.description || '' }); setDeleteConfirmOpen(true) }} title="Delete" className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4"/></Button>
+												<Button 
+													variant="ghost" 
+													size="icon" 
+													onClick={() => { setSelectedCategory({ id: c.id, category_name: c.category_name, description: c.description || '' }); setIsDialogOpen(true) }} 
+													title="Edit"
+													className="hover:bg-blue-100 hover:text-blue-600 transition-colors"
+												>
+													<Edit className="h-4 w-4"/>
+												</Button>
+												<Button 
+													variant="ghost" 
+													size="icon" 
+													onClick={() => { setCategoryToDelete({ id: c.id, category_name: c.category_name, description: c.description || '' }); setDeleteConfirmOpen(true) }} 
+													title="Delete" 
+													className="text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
+												>
+													<Trash2 className="h-4 w-4"/>
+												</Button>
 											</div>
 										</div>
 									))}

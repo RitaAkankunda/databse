@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Plus, Search, Edit, Trash2, ClipboardList } from "lucide-react"
+import { Plus, Search, Edit, Trash2, ClipboardList, Package, Users, AlertTriangle, Clock } from "lucide-react"
 import { ConfirmationDialog } from "@/components/confirmation-dialog"
 import { useNotificationActions } from "@/components/notification-system"
 import StatsCards from "@/components/stats-cards"
@@ -362,30 +362,108 @@ export default function AssignmentsPage() {
   }
 
   return (
-    <div className="flex">
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
       <SidebarNav />
-      <main className="flex-1 p-8">
-        <div className="mb-8 flex items-center justify-between">
+      <main className="flex-1 p-8 bg-gradient-to-br from-white/40 to-transparent">
+        {/* Enhanced Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between relative">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Assignments</h1>
-            <p className="text-muted-foreground">Issue assets to users and track returns</p>
+              <h1 className="text-4xl font-bold text-foreground mb-2">
+                Assignments Management
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                Issue assets to users and track returns
+              </p>
+            </div>
+            <Button 
+              onClick={handleAdd} 
+              className="gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              size="lg"
+            >
+              <Plus className="h-5 w-5"/>Add Assignment
+            </Button>
           </div>
-          <Button variant="success" onClick={handleAdd} className="gap-2"><Plus className="h-4 w-4"/>Add Assignment</Button>
         </div>
 
-        <StatsCards stats={[
-          { title: 'Total Assignments', value: <span className="text-purple-600">{totalAssignments}</span>, subtitle: 'All assignments' },
-          { title: 'Active', value: <span className="text-green-600">{activeAssignments}</span>, subtitle: 'Currently assigned' },
-          { title: 'Overdue', value: <span className="text-red-600">{overdueByStatus}</span>, subtitle: `By status — date-overdue: ${overdueByDate}` },
-          { title: 'Upcoming Returns', value: <span className="text-blue-600">{upcomingReturns}</span>, subtitle: 'Next 7 days' },
-        ]} />
+        {/* Enhanced Statistics Cards */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+          <Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200/30 rounded-full blur-3xl"></div>
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-purple-700 uppercase tracking-wide">Total Assignments</p>
+                  <p className="text-3xl font-extrabold text-gray-900 mt-2">{totalAssignments}</p>
+                  <p className="text-xs text-muted-foreground mt-1">All assignments</p>
+                </div>
+                <div className="h-14 w-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <ClipboardList className="h-7 w-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
+          <Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-green-200/30 rounded-full blur-3xl"></div>
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-green-700 uppercase tracking-wide">Active</p>
+                  <p className="text-3xl font-extrabold text-green-600 mt-2">{activeAssignments}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Currently assigned</p>
+                </div>
+                <div className="h-14 w-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <Package className="h-7 w-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-red-50 to-rose-50 border-2 border-red-200">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-200/30 rounded-full blur-3xl"></div>
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-red-700 uppercase tracking-wide">Overdue</p>
+                  <p className="text-3xl font-extrabold text-red-600 mt-2">{overdueByStatus}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Date-overdue: {overdueByDate}</p>
+                </div>
+                <div className="h-14 w-14 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <AlertTriangle className="h-7 w-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-modern hover-lift group relative overflow-hidden bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/30 rounded-full blur-3xl"></div>
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Upcoming Returns</p>
+                  <p className="text-3xl font-extrabold text-blue-600 mt-2">{upcomingReturns}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Next 7 days</p>
+                </div>
+                <div className="h-14 w-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <Clock className="h-7 w-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="card-modern hover:shadow-xl transition-all duration-300 border-2 border-slate-200 bg-gradient-to-br from-white to-slate-50/50">
+          <CardHeader className="pb-4">
             <div className="flex items-center gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Search assignments by asset, user, status, or notes" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input 
+                  placeholder="Search assignments by asset, user, status, or notes" 
+                  value={search} 
+                  onChange={(e) => setSearch(e.target.value)} 
+                  className="pl-11 h-12 text-base border-2 focus:border-primary transition-all" 
+                />
               </div>
             </div>
           </CardHeader>
@@ -400,9 +478,10 @@ export default function AssignmentsPage() {
               </div>
             )}
 
-            <Table>
+            <div className="overflow-x-auto">
+            <Table className="min-w-full">
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-gradient-to-r from-slate-100 to-slate-50 hover:bg-slate-100/50">
                   <TableHead className="w-12">
                     <input role="checkbox" type="checkbox" checked={selectedIds.length > 0 && selectedIds.length === filtered.length} onChange={(e) => toggleSelectAll(e.target.checked)} className="accent-primary" />
                   </TableHead>
@@ -416,7 +495,7 @@ export default function AssignmentsPage() {
               </TableHeader>
               <TableBody>
                 {filtered.map((r) => (
-                  <TableRow key={r.id}>
+                  <TableRow key={r.id} className="hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-colors duration-200">
                     <TableCell className="w-12"><input role="checkbox" type="checkbox" checked={selectedIds.includes(r.id)} onChange={(e) => toggleSelectOne(r.id, e.target.checked)} className="accent-primary" /></TableCell>
                     <TableCell className="font-medium">{assetsLookup[String(r.asset_id)] ?? String(r.asset_id)}</TableCell>
                     <TableCell>{usersLookup[String(r.user_id)] ?? String(r.user_id)}</TableCell>
@@ -431,8 +510,24 @@ export default function AssignmentsPage() {
                       </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="Edit"><Edit className="h-4 w-4"/></Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(r)} title="Delete" className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4"/></Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleEdit(r)} 
+                          title="Edit"
+                          className="hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                        >
+                          <Edit className="h-4 w-4"/>
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleDelete(r)} 
+                          title="Delete" 
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4"/>
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -444,6 +539,7 @@ export default function AssignmentsPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
 
