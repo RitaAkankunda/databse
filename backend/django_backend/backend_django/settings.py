@@ -17,7 +17,10 @@ SECRET_KEY = os.getenv('DJANGO_SECRET', 'change-me-for-prod')
 
 DEBUG = os.getenv('DJANGO_DEBUG', '1') == '1'
 
-ALLOWED_HOSTS = ['*']
+# ALLOWED_HOSTS: Use '*' for development, specify domains in production
+# For production, set ALLOWED_HOSTS env var as comma-separated list: "domain1.com,domain2.com"
+ALLOWED_HOSTS_ENV = os.getenv('ALLOWED_HOSTS', '')
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(',')] if ALLOWED_HOSTS_ENV else ['*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -34,6 +37,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'backend_django.utils.request_timer.RequestTimingMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -110,6 +114,10 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# WhiteNoise configuration for static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -120,5 +128,12 @@ REST_FRAMEWORK = {
     ),
 }
 
-# CORS - allow local frontend during development (adjust in prod)
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS Configuration
+# For production, set CORS_ALLOWED_ORIGINS env var as comma-separated list
+CORS_ALLOWED_ORIGINS_ENV = os.getenv('CORS_ALLOWED_ORIGINS', '')
+if CORS_ALLOWED_ORIGINS_ENV:
+    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_ENV.split(',')]
+    CORS_ALLOW_ALL_ORIGINS = False
+else:
+    # Development: allow all origins
+    CORS_ALLOW_ALL_ORIGINS = True

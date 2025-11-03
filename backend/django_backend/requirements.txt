@@ -5,3 +5,7 @@ dj-database-url>=1.0
 django-cors-headers>=4.0
 # Use mysql-connector-python for Windows-friendly MySQL connector; if you have build tools you can use mysqlclient instead
 mysql-connector-python>=8.0
+# Production server
+gunicorn>=21.2.0
+# Static files serving in production (optional but recommended)
+whitenoise>=6.6.0
